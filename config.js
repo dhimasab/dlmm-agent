@@ -91,9 +91,9 @@ export const config = {
     minFeePerTvl24h:       u.minFeePerTvl24h       ?? 7,
     minAgeBeforeYieldCheck: u.minAgeBeforeYieldCheck ?? 60, // minutes before low yield can trigger close
     minSolToOpen:          u.minSolToOpen          ?? 0.55,
-    deployAmountSol:       u.deployAmountSol       ?? 0.5,
-    gasReserve:            u.gasReserve            ?? 0.2,
-    positionSizePct:       u.positionSizePct       ?? 0.35,
+    deployAmountSol:       process.env.DEPLOY_AMOUNT_SOL ? parseFloat(process.env.DEPLOY_AMOUNT_SOL) : u.deployAmountSol ?? 0.5,
+    gasReserve:            process.env.GAS_RESERVE ? parseFloat(process.env.GAS_RESERVE) : u.gasReserve ?? 0.2,
+    positionSizePct:       process.env.POSITION_SIZE_PCT ? parseFloat(process.env.POSITION_SIZE_PCT) : u.positionSizePct ?? 0.35,
     // Trailing take-profit
     trailingTakeProfit:    u.trailingTakeProfit    ?? true,
     trailingTriggerPct:    u.trailingTriggerPct    ?? 3,    // activate trailing at X% PnL

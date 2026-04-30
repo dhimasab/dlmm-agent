@@ -167,7 +167,7 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
   }
   const systemPrompt = buildSystemPrompt(agentType, portfolio, positions, stateSummary, lessons, perfSummary, weightsSummary, decisionSummary);
 
-  let providerMode = "system";
+  let providerMode = "user_embedded";
   let messages = buildMessages(systemPrompt, sessionHistory, goal, providerMode);
 
   // Track write tools fired this session — prevent the model from calling the same
@@ -193,10 +193,11 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
       let usedModel = activeModel;
       // Force a tool call on step 0 for action intents — prevents the model from inventing deploy/close outcomes
       const ACTION_INTENTS = /\b(deploy|open|add liquidity|close|exit|withdraw|claim|swap|block|unblock)\b/i;
-      let toolChoice = (step === 0 && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
+      let toolChoice = "auto"; // OpenCode/Kimi incompatible with tool_choice required
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
+          const toolsToSend = getToolsForRole(agentType, goal);
           response = await client.chat.completions.create({
             model: usedModel,
             messages,
@@ -218,6 +219,7 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
             log("agent", "Provider rejected tool_choice=required — retrying with tool_choice=auto");
             attempt -= 1;
             continue;
+          log("agent", `Provider error: ${error.status} ${error.message} ${JSON.stringify(error.error?.message)}`);
           }
           throw error;
         }
