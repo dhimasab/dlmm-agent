@@ -41,3 +41,9 @@ discord-signals.json
 
 # Claude Code runtime lock
 .claude/scheduled_tasks.lock
+
+# OpenCode config
+opencode.json
+
+# Dashboard (local generated)
+dashboard.html
