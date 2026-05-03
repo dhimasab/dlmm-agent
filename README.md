@@ -148,6 +148,37 @@ Meridian runs a **ReAct agent loop** — each cycle the LLM reasons over live da
 
 ---
 
+## Out of Range (OOR) Handling
+
+### Direction-Aware OOR Logic
+
+Meridian now distinguishes between OOR directions with different exit behaviors:
+
+| Direction | Behavior |
+|-----------|----------|
+| **OOR Up** (price above upper bin) | Waits 45 minutes before closing (configurable via `outOfRangeWaitMinutes`) |
+| **OOR Down** (price below lower bin) | **Immediate Stop Loss** - closes position and swaps to SOL |
+
+### Configuration
+
+```json
+{
+  "outOfRangeWaitMinutes": 45,
+  "outOfRangeDownTriggersSL": true,
+  "stopLossPct": -10
+}
+```
+
+- `outOfRangeWaitMinutes` - minutes to wait before closing OOR Up positions (default: 45)
+- `outOfRangeDownTriggersSL` - enable/disable immediate SL for OOR Down (default: true)
+
+### Why Separate Handling?
+
+- **OOR Down** typically indicates strong downward momentum - waiting wastes time and risks further loss
+- **OOR Up** often recovers quickly as price can spike above range temporarily
+
+---
+
 ## Requirements
 
 - Node.js 18+

@@ -88,6 +88,7 @@ export function trackPosition({
     signal_snapshot: signal_snapshot || null,
     deployed_at: new Date().toISOString(),
     out_of_range_since: null,
+    out_of_range_direction: null,
     last_claim_at: null,
     total_fees_claimed_usd: 0,
     rebalance_count: 0,
@@ -361,7 +362,7 @@ export function getStateSummary() {
  * Returns { action, reason } or null if no exit needed.
  */
 export function updatePnlAndCheckExits(position_address, positionData, mgmtConfig) {
-  const { pnl_pct: currentPnlPct, pnl_pct_suspicious, in_range, fee_per_tvl_24h } = positionData;
+  const { pnl_pct: currentPnlPct, pnl_pct_suspicious, in_range, fee_per_tvl_24h, active_bin, lower_bin, upper_bin } = positionData;
   const state = load();
   const pos = state.positions[position_address];
   if (!pos || pos.closed) return null;
@@ -390,10 +391,14 @@ export function updatePnlAndCheckExits(position_address, positionData, mgmtConfi
   // Update OOR state
   if (in_range === false && !pos.out_of_range_since) {
     pos.out_of_range_since = new Date().toISOString();
+    if (active_bin != null && upper_bin != null) {
+      pos.out_of_range_direction = active_bin > upper_bin ? "up" : "down";
+    }
     changed = true;
-    log("state", `Position ${position_address} marked out of range`);
+    log("state", `Position ${position_address} marked out of range (${pos.out_of_range_direction})`);
   } else if (in_range === true && pos.out_of_range_since) {
     pos.out_of_range_since = null;
+    pos.out_of_range_direction = null;
     changed = true;
     log("state", `Position ${position_address} back in range`);
   }
@@ -423,8 +428,16 @@ export function updatePnlAndCheckExits(position_address, positionData, mgmtConfi
     }
   }
 
-  // ── Out of range too long ──────────────────────────────────────
-  if (pos.out_of_range_since) {
+  // ── OOR below range = Stop Loss (immediate) ───────────────────
+  if (mgmtConfig.outOfRangeDownTriggersSL && pos.out_of_range_direction === "down") {
+    return {
+      action: "STOP_LOSS",
+      reason: "OOR below range - Stop Loss triggered",
+    };
+  }
+
+  // ── OOR above range = wait ─────────────────────────────────────
+  if (pos.out_of_range_since && pos.out_of_range_direction === "up") {
     const minutesOOR = Math.floor((Date.now() - new Date(pos.out_of_range_since).getTime()) / 60000);
     if (minutesOOR >= mgmtConfig.outOfRangeWaitMinutes) {
       return {
