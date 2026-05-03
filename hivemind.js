@@ -183,7 +183,9 @@ export async function registerHiveMindAgent({ reason = "heartbeat" } = {}) {
       },
     });
   } catch (error) {
-    log("hivemind_warn", `Agent register failed: ${error.message}`);
+    if (!error.message.includes("Invalid") && !error.message.includes("Unauthorized")) {
+      log("hivemind_warn", `Agent register failed: ${error.message}`);
+    }
     return null;
   }
 }
@@ -202,7 +204,9 @@ export async function pullHiveMindLessons(limit = 12) {
     writeCache(cache);
     return cache.sharedLessons;
   } catch (error) {
-    log("hivemind_warn", `Lesson pull failed: ${error.message}`);
+    if (!error.message.includes("Invalid") && !error.message.includes("Unauthorized")) {
+      log("hivemind_warn", `Lesson pull failed: ${error.message}`);
+    }
     return null;
   }
 }
@@ -219,7 +223,9 @@ export async function pullHiveMindPresets() {
     writeCache(cache);
     return cache.presets;
   } catch (error) {
-    log("hivemind_warn", `Preset pull failed: ${error.message}`);
+    if (!error.message.includes("Invalid") && !error.message.includes("Unauthorized")) {
+      log("hivemind_warn", `Preset pull failed: ${error.message}`);
+    }
     return null;
   }
 }
@@ -299,7 +305,9 @@ export async function pushHiveLesson(lesson) {
       body,
     });
   } catch (error) {
-    log("hivemind_warn", `Lesson push failed: ${error.message}`);
+    if (!error.message.includes("Invalid") && !error.message.includes("Unauthorized")) {
+      log("hivemind_warn", `Lesson push failed: ${error.message}`);
+    }
     return null;
   }
 }
@@ -340,7 +348,9 @@ export async function pushHivePerformanceEvent(perf) {
       },
     });
   } catch (error) {
-    log("hivemind_warn", `Performance push failed: ${error.message}`);
+    if (!error.message.includes("Invalid") && !error.message.includes("Unauthorized")) {
+      log("hivemind_warn", `Performance push failed: ${error.message}`);
+    }
     return null;
   }
 }

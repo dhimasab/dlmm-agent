@@ -870,7 +870,9 @@ async function fetchLpAgentOpenPositions(walletAddress) {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      log("lpagent_api", `HTTP ${res.status} for owner ${walletAddress.slice(0, 8)}: ${body.slice(0, 160)}`);
+      if (res.status !== 401) {
+        log("lpagent_api", `HTTP ${res.status} for owner ${walletAddress.slice(0, 8)}: ${body.slice(0, 160)}`);
+      }
       return {};
     }
     const data = await res.json();
