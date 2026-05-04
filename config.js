@@ -91,9 +91,9 @@ export const config = {
     takeProfitPct:         u.takeProfitPct         ?? u.takeProfitFeePct ?? 5,
     minFeePerTvl24h:       u.minFeePerTvl24h       ?? 7,
     minAgeBeforeYieldCheck: u.minAgeBeforeYieldCheck ?? 60, // minutes before low yield can trigger close
-    minSolToOpen:          u.minSolToOpen          ?? 0.55,
+    minSolToOpen:          u.minSolToOpen          ?? 1,
     deployAmountSol:       process.env.DEPLOY_AMOUNT_SOL ? parseFloat(process.env.DEPLOY_AMOUNT_SOL) : u.deployAmountSol ?? 0.5,
-    gasReserve:            process.env.GAS_RESERVE ? parseFloat(process.env.GAS_RESERVE) : u.gasReserve ?? 0.2,
+    gasReserve:            process.env.GAS_RESERVE ? parseFloat(process.env.GAS_RESERVE) : u.gasReserve ?? 0.3,
     positionSizePct:       process.env.POSITION_SIZE_PCT ? parseFloat(process.env.POSITION_SIZE_PCT) : u.positionSizePct ?? 0.35,
     // Trailing take-profit
     trailingTakeProfit:    u.trailingTakeProfit    ?? true,
@@ -112,8 +112,8 @@ export const config = {
 
   // ─── Scheduling ─────────────────────────
   schedule: {
-    managementIntervalMin:  u.managementIntervalMin  ?? 10,
-    screeningIntervalMin:   u.screeningIntervalMin   ?? 30,
+    managementIntervalMin:  u.managementIntervalMin  ?? 5,
+    screeningIntervalMin:   u.screeningIntervalMin   ?? 15,
     healthCheckIntervalMin: u.healthCheckIntervalMin ?? 60,
   },
 
