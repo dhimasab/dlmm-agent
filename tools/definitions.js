@@ -137,7 +137,7 @@ HARD RULES:
   use bins_below only, keep bins_above=0, and the upper bin will be pinned to the current active bin.
 
 Guidelines (only when user hasn't specified):
-- Strategy: ALWAYS use "bid_ask". Never use "spot" regardless of lessons or past performance.
+- Strategy: ALWAYS use "spot". Never use "bid_ask" regardless of lessons or past performance.
 - Bins: choose 35–69 for standard volatility; up to 350 for wide-range strategies. Max 1400 total.
 - Deposit: Can be single-sided (SOL only or Base only) or dual-sided.
 
@@ -163,8 +163,8 @@ WARNING: This executes a real on-chain transaction. Check DRY_RUN mode.`,
           },
           strategy: {
             type: "string",
-            enum: ["bid_ask"],
-            description: "DLMM strategy type. ALWAYS use bid_ask. Never use spot."
+            enum: ["spot"],
+            description: "DLMM strategy type. ALWAYS use spot. Never use bid_ask."
           },
           bins_below: {
             type: "number",

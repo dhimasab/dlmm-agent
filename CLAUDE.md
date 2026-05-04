@@ -87,6 +87,7 @@ Sets defined in `agent.js:6-7`. If you add a tool, also add it to the relevant s
 | gasReserve | management | 0.2 |
 | positionSizePct | management | 0.35 |
 | minSolToOpen | management | 0.55 |
+| strategy | strategy | "spot" |
 | outOfRangeWaitMinutes | management | 30 |
 | managementIntervalMin | schedule | 10 |
 | screeningIntervalMin | schedule | 30 |

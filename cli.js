@@ -71,7 +71,7 @@ Runs one AI management cycle over open positions.
 Output: { done: true, report: "..." }
 \`\`\`
 
-### meridian deploy --pool <addr> --amount <sol> [--bins-below 69] [--bins-above 0] [--strategy bid_ask|spot] [--dry-run]
+### meridian deploy --pool <addr> --amount <sol> [--bins-below 69] [--bins-above 0] [--strategy spot|bid_ask] [--dry-run]
 Deploys a new LP position. All safety checks apply.
 \`\`\`
 Output: { success, position, pool_name, txs, price_range, bin_step }
@@ -665,7 +665,7 @@ switch (subcommand) {
       pool_address: flags.pool,
       amount_x: flags["amount-x"] ? parseFloat(flags["amount-x"]) : 0,
       amount_y: flags["amount-y"] ? parseFloat(flags["amount-y"]) : 0,
-      strategy: flags.strategy || "bid_ask",
+      strategy: flags.strategy || "spot",
       single_sided_x: argv.includes("--single-sided-x"),
     }));
     break;
