@@ -76,7 +76,6 @@ export const config = {
   management: {
     minClaimAmount:        u.minClaimAmount        ?? 5,
     autoSwapAfterClaim:    u.autoSwapAfterClaim    ?? false,
-    outOfRangeBinsToClose: u.outOfRangeBinsToClose ?? 10,
     outOfRangeWaitMinutes: u.outOfRangeWaitMinutes ?? 45,
     outOfRangeDownTriggersSL: u.outOfRangeDownTriggersSL ?? true,
     oorCooldownTriggerCount: u.oorCooldownTriggerCount ?? 3,

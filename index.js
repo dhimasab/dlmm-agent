@@ -819,24 +819,17 @@ function getDeterministicCloseRule(position, managementConfig) {
   if (
     position.active_bin != null &&
     position.upper_bin != null &&
-    position.active_bin > position.upper_bin + managementConfig.outOfRangeBinsToClose
-  ) {
-    return { action: "CLOSE", rule: 3, reason: "pumped far above range" };
-  }
-  if (
-    position.active_bin != null &&
-    position.upper_bin != null &&
     position.active_bin > position.upper_bin &&
     (position.minutes_out_of_range ?? 0) >= managementConfig.outOfRangeWaitMinutes
   ) {
-    return { action: "CLOSE", rule: 4, reason: "OOR" };
+    return { action: "CLOSE", rule: 3, reason: "OOR above limit" };
   }
   if (
     position.fee_per_tvl_24h != null &&
     position.fee_per_tvl_24h < managementConfig.minFeePerTvl24h &&
     (position.age_minutes ?? 0) >= 60
   ) {
-    return { action: "CLOSE", rule: 5, reason: "low yield" };
+    return { action: "CLOSE", rule: 4, reason: "low yield" };
   }
   return null;
 }

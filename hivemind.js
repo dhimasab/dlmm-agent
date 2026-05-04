@@ -316,7 +316,7 @@ function shouldCountInAdjustedWinRate(closeReason) {
   const text = String(closeReason || "").toLowerCase();
   return !(
     text.includes("out of range") ||
-    text.includes("pumped far above range") ||
+    text.includes("oor above") ||
     text === "oor" ||
     text.includes("oor")
   );

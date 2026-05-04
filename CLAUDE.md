@@ -101,6 +101,9 @@ Sets defined in `agent.js:6-7`. If you add a tool, also add it to the relevant s
 1. **Deploy**: `deploy_position` → executor safety checks → `trackPosition()` in state.js → Telegram notify
 2. **Monitor**: management cron → `getMyPositions()` → `getPositionPnl()` → OOR detection → pool-memory snapshots
 3. **Close**: `close_position` → `recordPerformance()` in lessons.js → auto-swap base token to SOL → Telegram notify
+   - Close triggers: stop loss (Rule 1), take profit (Rule 2), OOR above limit after `outOfRangeWaitMinutes` (Rule 3), low yield (Rule 4).
+   - OOR **below** range → immediate stop loss (if `outOfRangeDownTriggersSL=true`).
+   - OOR **above** range → wait `outOfRangeWaitMinutes` (default 45min) before closing.
 4. **Learn**: `evolveThresholds()` runs on performance data → updates config.screening → persists to user-config.json
 
 ---

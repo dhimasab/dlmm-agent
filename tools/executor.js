@@ -317,7 +317,6 @@ const toolMap = {
       // management
       minClaimAmount: ["management", "minClaimAmount"],
       autoSwapAfterClaim: ["management", "autoSwapAfterClaim"],
-      outOfRangeBinsToClose: ["management", "outOfRangeBinsToClose"],
       outOfRangeWaitMinutes: ["management", "outOfRangeWaitMinutes"],
       outOfRangeDownTriggersSL: ["management", "outOfRangeDownTriggersSL"],
       oorCooldownTriggerCount: ["management", "oorCooldownTriggerCount"],
