@@ -6,12 +6,12 @@
   "llmModel": "minimax/minimax-m2.7",
   "dryRun": true,
 
-  "deployAmountSol": 0.5,
+  "deployAmountSol": 4,
   "maxPositions": 3,
-  "minSolToOpen": 0.55,
+  "minSolToOpen": 1,
   "maxDeployAmount": 50,
-  "gasReserve": 0.2,
-  "positionSizePct": 0.35,
+  "gasReserve": 0.3,
+  "positionSizePct": 0,
 
   "strategy": "spot",
   "binsBelow": 69,
@@ -50,9 +50,9 @@
   "oorCooldownTriggerCount": 3,
   "oorCooldownHours": 12,
   "minVolumeToRebalance": 1000,
-  "stopLossPct": -50,
+  "stopLossPct": -5,
   "takeProfitPct": 5,
-  "minFeePerTvl24h": 7,
+  "minFeePerTvl24h": 4,
   "minAgeBeforeYieldCheck": 60,
   "trailingTakeProfit": true,
   "trailingTriggerPct": 3,
@@ -61,7 +61,7 @@
   "solMode": false,
 
   "managementIntervalMin": 10,
-  "screeningIntervalMin": 30,
+  "screeningIntervalMin": 15,
   "healthCheckIntervalMin": 60,
 
   "temperature": 0.373,
