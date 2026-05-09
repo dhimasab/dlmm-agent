@@ -726,11 +726,13 @@ Summarize the current portfolio health, total fees earned, and performance of al
             }
             continue;
           }
+          const isStopLoss = exit.action === "STOP_LOSS";
           const cooldownMs = config.schedule.managementIntervalMin * 60 * 1000;
           const sinceLastTrigger = Date.now() - _pollTriggeredAt;
-          if (sinceLastTrigger >= cooldownMs) {
+          if (isStopLoss || sinceLastTrigger >= cooldownMs) {
             _pollTriggeredAt = Date.now();
-            log("state", `[PnL poll] Exit alert: ${p.pair} — ${exit.reason} — triggering management`);
+            const triggerType = isStopLoss ? "STOP LOSS" : "exit alert";
+            log("state", `[PnL poll] ${triggerType}: ${p.pair} — ${exit.reason} — triggering management IMMEDIATE`);
             runManagementCycle({ silent: true }).catch((e) => log("cron_error", `Poll-triggered management failed: ${e.message}`));
           } else {
             log("state", `[PnL poll] Exit alert: ${p.pair} — ${exit.reason} — cooldown (${Math.round((cooldownMs - sinceLastTrigger) / 1000)}s left)`);
@@ -739,11 +741,13 @@ Summarize the current portfolio health, total fees earned, and performance of al
         }
         const closeRule = getDeterministicCloseRule(p, config.management);
         if (closeRule) {
+          const isStopLoss = closeRule.rule === 1;
           const cooldownMs = config.schedule.managementIntervalMin * 60 * 1000;
           const sinceLastTrigger = Date.now() - _pollTriggeredAt;
-          if (sinceLastTrigger >= cooldownMs) {
+          if (isStopLoss || sinceLastTrigger >= cooldownMs) {
             _pollTriggeredAt = Date.now();
-            log("state", `[PnL poll] Deterministic close rule: ${p.pair} — Rule ${closeRule.rule}: ${closeRule.reason} — triggering management`);
+            const triggerType = isStopLoss ? "STOP LOSS" : "deterministic rule";
+            log("state", `[PnL poll] ${triggerType}: ${p.pair} — Rule ${closeRule.rule}: ${closeRule.reason} — triggering management IMMEDIATE`);
             runManagementCycle({ silent: true }).catch((e) => log("cron_error", `Poll-triggered management failed: ${e.message}`));
           } else {
             log("state", `[PnL poll] Deterministic close rule: ${p.pair} — Rule ${closeRule.rule}: ${closeRule.reason} — cooldown (${Math.round((cooldownMs - sinceLastTrigger) / 1000)}s left)`);

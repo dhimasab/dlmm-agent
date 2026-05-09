@@ -87,6 +87,12 @@ function getRawPoolScreeningRejectReason(pool, s) {
     const maxCreatedAt = Date.now() - s.minTokenAgeHours * 3_600_000;
     if (createdAt == null || createdAt > maxCreatedAt) return `token age below minTokenAgeHours ${s.minTokenAgeHours}`;
   }
+  if (s.maxVolatility != null && s.maxVolatility > 0) {
+    const volatility = numeric(pool?.volatility);
+    if (volatility == null || volatility > s.maxVolatility) {
+      return `volatility ${volatility ?? "unknown"} above maxVolatility ${s.maxVolatility}`;
+    }
+  }
   if (s.maxTokenAgeHours != null) {
     const minCreatedAt = Date.now() - s.maxTokenAgeHours * 3_600_000;
     if (createdAt == null || createdAt < minCreatedAt) return `token age above maxTokenAgeHours ${s.maxTokenAgeHours}`;
@@ -353,6 +359,7 @@ export async function getTopCandidates({ limit = 10 } = {}) {
   const minTvl = Number(config.screening.minTvl ?? 0);
   const maxTvl = config.screening.maxTvl == null ? null : Number(config.screening.maxTvl);
   const minFeeActiveTvlRatio = Number(config.screening.minFeeActiveTvlRatio ?? 0);
+  const maxVolatility = config.screening.maxVolatility ?? 0;
 
   const eligible = pools
     .filter((p) => {
@@ -369,6 +376,13 @@ export async function getTopCandidates({ limit = 10 } = {}) {
       if (Number.isFinite(minFeeActiveTvlRatio) && minFeeActiveTvlRatio > 0 && (!Number.isFinite(feeActiveTvlRatio) || feeActiveTvlRatio < minFeeActiveTvlRatio)) {
         pushFilteredReason(filteredOut, p, `fee/active-TVL ${Number.isFinite(feeActiveTvlRatio) ? feeActiveTvlRatio : "unknown"} below minFeeActiveTvlRatio ${minFeeActiveTvlRatio}`);
         return false;
+      }
+      if (maxVolatility > 0) {
+        const vol = Number(p.volatility);
+        if (Number.isFinite(vol) && vol > maxVolatility) {
+          pushFilteredReason(filteredOut, p, `volatility ${vol} above maxVolatility ${maxVolatility}`);
+          return false;
+        }
       }
       if (occupiedPools.has(p.pool)) {
         pushFilteredReason(filteredOut, p, "already have an open position in this pool");
@@ -468,6 +482,11 @@ export async function getTopCandidates({ limit = 10 } = {}) {
       if (p.is_wash) {
         log("screening", `Risk filter: dropped ${p.name} — wash trading flagged`);
         pushFilteredReason(filteredOut, p, "wash trading flagged");
+        return false;
+      }
+      if (p.dev_sold_all) {
+        log("screening", `Risk filter: dropped ${p.name} — dev sold all tokens`);
+        pushFilteredReason(filteredOut, p, "dev sold all tokens");
         return false;
       }
       return true;
