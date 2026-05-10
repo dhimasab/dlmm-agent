@@ -6,7 +6,7 @@
   "llmModel": "minimax/minimax-m2.7",
   "dryRun": true,
 
-  "deployAmountSol": 4,
+  "deployAmountSol": 5,
   "maxPositions": 3,
   "minSolToOpen": 1,
   "maxDeployAmount": 50,
@@ -43,15 +43,17 @@
   "minTokenAgeHours": null,
   "maxTokenAgeHours": null,
   "athFilterPct": null,
+  "maxVolatility": 4.9,
 
   "minClaimAmount": 5,
   "autoSwapAfterClaim": false,
   "outOfRangeWaitMinutes": 30,
+  "outOfRangeDownTriggersSL": true,
   "oorCooldownTriggerCount": 3,
   "oorCooldownHours": 12,
   "minVolumeToRebalance": 1000,
-  "stopLossPct": -5,
-  "takeProfitPct": 5,
+  "stopLossPct": -4,
+  "takeProfitPct": 6,
   "minFeePerTvl24h": 4,
   "minAgeBeforeYieldCheck": 60,
   "trailingTakeProfit": true,
@@ -60,7 +62,7 @@
   "pnlSanityMaxDiffPct": 5,
   "solMode": false,
 
-  "managementIntervalMin": 10,
+  "managementIntervalMin": 5,
   "screeningIntervalMin": 15,
   "healthCheckIntervalMin": 60,
 

@@ -69,7 +69,7 @@ export const config = {
     blockedLaunchpads:  u.blockedLaunchpads  ?? [],  // e.g. ["letsbonk.fun", "pump.fun"]
     minTokenAgeHours:   u.minTokenAgeHours   ?? null, // null = no minimum
     maxTokenAgeHours:   u.maxTokenAgeHours   ?? null, // null = no maximum
-    maxVolatility:     u.maxVolatility     ?? 6,   // reject pump&dump tokens with extreme volatility
+    maxVolatility:     u.maxVolatility     ?? 4.9,   // reject pump&dump tokens with extreme volatility
     athFilterPct:       u.athFilterPct       ?? null, // e.g. -20 = only deploy if price is >= 20% below ATH
   },
 
@@ -77,7 +77,7 @@ export const config = {
   management: {
     minClaimAmount:        u.minClaimAmount        ?? 5,
     autoSwapAfterClaim:    u.autoSwapAfterClaim    ?? false,
-    outOfRangeWaitMinutes: u.outOfRangeWaitMinutes ?? 45,
+    outOfRangeWaitMinutes: u.outOfRangeWaitMinutes ?? 30,
     outOfRangeDownTriggersSL: u.outOfRangeDownTriggersSL ?? true,
     oorCooldownTriggerCount: u.oorCooldownTriggerCount ?? 3,
     oorCooldownHours:       u.oorCooldownHours       ?? 12,
@@ -87,14 +87,14 @@ export const config = {
     repeatDeployCooldownScope: u.repeatDeployCooldownScope ?? "token", // pool | token | both
     repeatDeployCooldownMinFeeEarnedPct: u.repeatDeployCooldownMinFeeEarnedPct ?? u.repeatDeployCooldownMinFeeYieldPct ?? 0,
     minVolumeToRebalance:  u.minVolumeToRebalance  ?? 1000,
-    stopLossPct:           u.stopLossPct           ?? u.emergencyPriceDropPct ?? -7,
-    takeProfitPct:         u.takeProfitPct         ?? u.takeProfitFeePct ?? 5,
-    minFeePerTvl24h:       u.minFeePerTvl24h       ?? 7,
+    stopLossPct:           u.stopLossPct           ?? u.emergencyPriceDropPct ?? -4,
+    takeProfitPct:         u.takeProfitPct         ?? u.takeProfitFeePct ?? 6,
+    minFeePerTvl24h:       u.minFeePerTvl24h       ?? 4,
     minAgeBeforeYieldCheck: u.minAgeBeforeYieldCheck ?? 60, // minutes before low yield can trigger close
     minSolToOpen:          u.minSolToOpen          ?? 1,
-    deployAmountSol:       process.env.DEPLOY_AMOUNT_SOL ? parseFloat(process.env.DEPLOY_AMOUNT_SOL) : u.deployAmountSol ?? 0.5,
+    deployAmountSol:       process.env.DEPLOY_AMOUNT_SOL ? parseFloat(process.env.DEPLOY_AMOUNT_SOL) : u.deployAmountSol ?? 5,
     gasReserve:            process.env.GAS_RESERVE ? parseFloat(process.env.GAS_RESERVE) : u.gasReserve ?? 0.3,
-    positionSizePct:       process.env.POSITION_SIZE_PCT ? parseFloat(process.env.POSITION_SIZE_PCT) : u.positionSizePct ?? 0.35,
+    positionSizePct:       process.env.POSITION_SIZE_PCT ? parseFloat(process.env.POSITION_SIZE_PCT) : u.positionSizePct ?? 0,
     // Trailing take-profit
     trailingTakeProfit:    u.trailingTakeProfit    ?? true,
     trailingTriggerPct:    u.trailingTriggerPct    ?? 3,    // activate trailing at X% PnL
