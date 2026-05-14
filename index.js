@@ -23,6 +23,7 @@ import {
   createLiveMessage,
 } from "./telegram.js";
 import { generateBriefing } from "./briefing.js";
+import { generateRecap } from "./recap-onchain.js";
 import { getLastBriefingDate, setLastBriefingDate, getTrackedPosition, setPositionInstruction, updatePnlAndCheckExits, queuePeakConfirmation, resolvePendingPeak, queueTrailingDropConfirmation, resolvePendingTrailingDrop } from "./state.js";
 import { getActiveStrategy } from "./strategy-library.js";
 import { recordPositionSnapshot, recallForPool, addPoolNote } from "./pool-memory.js";
@@ -1158,6 +1159,8 @@ function formatHelpText() {
     "Telegram commands",
     "",
     "/help — show commands",
+    "/recap — on-chain recap today (00:00 WIB → now)",
+    "/last — on-chain recap yesterday (full day WIB)",
     "/status — wallet + positions snapshot",
     "/wallet — wallet, deploy amount, HiveMind status",
     "/positions — list open positions",
@@ -1281,6 +1284,28 @@ async function telegramHandler(msg) {
       await sendHTML(briefing);
     } catch (e) {
       await sendMessage(`Error: ${e.message}`).catch(() => {});
+    }
+    return;
+  }
+
+  if (text === "/recap") {
+    try {
+      await sendMessage(`⏳ Fetching on-chain data...`);
+      const recap = await generateRecap('today');
+      await sendMessage(recap);
+    } catch (e) {
+      await sendMessage(`❌ Recap error: ${e.message.slice(0, 200)}`).catch(() => {});
+    }
+    return;
+  }
+
+  if (text === "/last") {
+    try {
+      await sendMessage(`⏳ Fetching on-chain data for yesterday...`);
+      const recap = await generateRecap('yesterday');
+      await sendMessage(recap);
+    } catch (e) {
+      await sendMessage(`❌ Last error: ${e.message.slice(0, 200)}`).catch(() => {});
     }
     return;
   }
