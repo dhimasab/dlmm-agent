@@ -1087,6 +1087,29 @@ export async function getMyPositions({ force = false, silent = false } = {}) {
           request_id: result.requestId || null,
         };
         _positionsCacheAt = Date.now();
+
+        // Enrich relay positions with feePerTvl24h from Meteora portfolio API
+        // (relay doesn't always return this field)
+        try {
+          const portRes = await fetch(`https://dlmm.datapi.meteora.ag/portfolio/open?user=${walletAddress}`);
+          if (portRes.ok) {
+            const portData = await portRes.json();
+            const poolFees = {};
+            for (const pool of (portData.pools || [])) {
+              if (pool.feePerTvl24h != null) {
+                for (const posAddr of (pool.listPositions || [])) {
+                  poolFees[posAddr] = Math.round(parseFloat(pool.feePerTvl24h) * 100) / 100;
+                }
+              }
+            }
+            for (const pos of _positionsCache.positions) {
+              if (pos.fee_per_tvl_24h == null && poolFees[pos.position]) {
+                pos.fee_per_tvl_24h = poolFees[pos.position];
+              }
+            }
+          }
+        } catch (_) { /* non-critical enrichment */ }
+
         return _positionsCache;
       } catch (error) {
         log("positions_warn", `Agent Meridian relay failed; falling back to Meteora/local positions path: ${error.message}`);
