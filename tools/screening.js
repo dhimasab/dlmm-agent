@@ -484,11 +484,6 @@ export async function getTopCandidates({ limit = 10 } = {}) {
         pushFilteredReason(filteredOut, p, "wash trading flagged");
         return false;
       }
-      if (p.dev_sold_all) {
-        log("screening", `Risk filter: dropped ${p.name} — dev sold all tokens`);
-        pushFilteredReason(filteredOut, p, "dev sold all tokens");
-        return false;
-      }
       return true;
     }));
 
