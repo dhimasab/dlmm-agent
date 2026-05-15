@@ -173,7 +173,8 @@ export function recordPoolDeploy(poolAddress, deployData) {
   const recentDeploys = entry.deploys.slice(-oorTriggerCount);
   const repeatedOorCloses =
     recentDeploys.length >= oorTriggerCount &&
-    recentDeploys.every((d) => isOorCloseReason(d.close_reason));
+    recentDeploys.every((d) => isOorCloseReason(d.close_reason)) &&
+    recentDeploys.every((d) => d.pnl_pct == null || d.pnl_pct < 0); // only cooldown if losing money
 
   if (repeatedOorCloses) {
     const reason = `repeated OOR closes (${oorTriggerCount}x)`;
