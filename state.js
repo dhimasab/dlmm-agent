@@ -362,7 +362,7 @@ export function getStateSummary() {
  * Returns { action, reason } or null if no exit needed.
  */
 export function updatePnlAndCheckExits(position_address, positionData, mgmtConfig) {
-  const { pnl_pct: currentPnlPct, pnl_pct_suspicious, in_range, fee_per_tvl_24h, active_bin, lower_bin, upper_bin } = positionData;
+  const { pnl_pct: currentPnlPct, pnl_pct_suspicious, in_range: relayInRange, fee_per_tvl_24h, active_bin, lower_bin, upper_bin } = positionData;
   const state = load();
   const pos = state.positions[position_address];
   if (!pos || pos.closed) return null;
@@ -386,6 +386,17 @@ export function updatePnlAndCheckExits(position_address, positionData, mgmtConfi
     pos.trailing_active = true;
     changed = true;
     log("state", `Position ${position_address} trailing TP activated (confirmed peak: ${pos.peak_pnl_pct}%)`);
+  }
+
+  // Fix: compute in_range from bin data to override relay bug
+  // Relay sometimes returns in_range: true when active_bin is outside the range
+  let in_range = relayInRange;
+  if (active_bin != null && lower_bin != null && upper_bin != null) {
+    const actualInRange = active_bin >= lower_bin && active_bin <= upper_bin;
+    if (actualInRange !== relayInRange) {
+      log("state", `Position ${position_address} relay in_range=${relayInRange} but bin data says ${actualInRange} (active=${active_bin} range=[${lower_bin},${upper_bin}]) — overriding relay`);
+      in_range = actualInRange;
+    }
   }
 
   // Update OOR state
