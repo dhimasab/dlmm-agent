@@ -43,6 +43,7 @@ let _deriveBinArrayBitmapExtension = null;
 let _isOverflowDefaultBinArrayBitmap = null;
 let _BIN_ARRAY_FEE = null;
 let _BIN_ARRAY_BITMAP_FEE = null;
+let _unwrapSOLInstruction = null;
 
 async function getDLMM() {
   if (!_DLMM) {
@@ -57,6 +58,7 @@ async function getDLMM() {
     _isOverflowDefaultBinArrayBitmap = mod.isOverflowDefaultBinArrayBitmap;
     _BIN_ARRAY_FEE = mod.BIN_ARRAY_FEE;
     _BIN_ARRAY_BITMAP_FEE = mod.BIN_ARRAY_BITMAP_FEE;
+    _unwrapSOLInstruction = mod.unwrapSOLInstruction;
   }
   return {
     DLMM: _DLMM,
@@ -69,6 +71,7 @@ async function getDLMM() {
     isOverflowDefaultBinArrayBitmap: _isOverflowDefaultBinArrayBitmap,
     BIN_ARRAY_FEE: _BIN_ARRAY_FEE,
     BIN_ARRAY_BITMAP_FEE: _BIN_ARRAY_BITMAP_FEE,
+    unwrapSOLInstruction: _unwrapSOLInstruction,
   };
 }
 
@@ -1986,7 +1989,23 @@ export async function swapViaMeteora({ poolAddress, baseMint, amount, slippagePc
     const wallet = getWallet();
     const txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
 
-    log("meteora_swap", `SUCCESS tx: ${txHash}`);
+    log("meteora_swap", `SUCCESS swap tx: ${txHash}`);
+
+    // ─── Step 2: Unwrap wSOL → native SOL ─────────────────────
+    try {
+      const { unwrapSOLInstruction } = await getDLMM();
+      const unwrapIx = await unwrapSOLInstruction(wallet.publicKey);
+      if (unwrapIx) {
+        const unwrapTx = new Transaction().add(unwrapIx);
+        const recentBlockhash = await connection.getLatestBlockhash();
+        unwrapTx.recentBlockhash = recentBlockhash.blockhash;
+        unwrapTx.feePayer = wallet.publicKey;
+        const unwrapHash = await sendAndConfirmTransaction(connection, unwrapTx, [wallet]);
+        log("meteora_swap", `SUCCESS unwrap tx: ${unwrapHash}`);
+      }
+    } catch (unwraperr) {
+      log("meteora_swap_warn", `WSOL unwrap failed (may already be closed): ${unwraperr.message}`);
+    }
 
     // Derive approximate out amount from quote
     const outAmount = parseFloat(quote.outAmount.toString()) / Math.pow(10, 9);
