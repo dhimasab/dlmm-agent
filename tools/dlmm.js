@@ -1390,7 +1390,7 @@ export async function claimFees({ position_address }) {
     _positionsCacheAt = 0; // invalidate cache after claim
     recordClaim(position_address);
 
-    return { success: true, position: position_address, txs: txHashes, base_mint: pool.lbPair.tokenXMint.toString() };
+    return { success: true, position: position_address, pool: poolAddress.toString(), txs: txHashes, base_mint: pool.lbPair.tokenXMint.toString() };
   } catch (error) {
     log("claim_error", error.message);
     return { success: false, error: error.message };
@@ -1928,4 +1928,127 @@ async function lookupPoolForPosition(position_address, walletAddress) {
   }
 
   throw new Error(`Position ${position_address} not found in open positions`);
+}
+
+/**
+ * Fallback swap via Meteora DLMM pool when Jupiter cannot route the token.
+ * Swaps base token (token X) for quote token (token Y) through the same pool.
+ * @param {Object} opts
+ * @param {string} opts.poolAddress - The Meteora pool address
+ * @param {string} opts.baseMint - Base token mint to swap
+ * @param {number} opts.amount - Amount of base token to swap (in decimal units)
+ * @param {number} [opts.slippagePct=1] - Allowed slippage percentage
+ * @returns {Promise<{success: boolean, tx?: string, amount_out?: number, error?: string, method: string}>}
+ */
+export async function swapViaMeteora({ poolAddress, baseMint, amount, slippagePct = 1 }) {
+  try {
+    log("meteora_swap", `Attempting Meteora direct swap: ${baseMint.slice(0, 8)} → SOL via pool ${poolAddress.slice(0, 8)}`);
+
+    const { DLMM } = await getDLMM();
+    const pool = await DLMM.create(getConnection(), new PublicKey(poolAddress));
+
+    // Determine token decimals
+    const mintInfo = await getConnection().getParsedAccountInfo(new PublicKey(baseMint));
+    const decimals = mintInfo.value?.data?.parsed?.info?.decimals ?? 9;
+    const inAmount = new BN(Math.floor(amount * Math.pow(10, decimals)));
+
+    if (inAmount.isZero()) {
+      return { success: false, error: "Amount too small to swap", method: "meteora" };
+    }
+
+    // swapForY = true means swapping token X (base) for token Y (SOL/wSOL)
+    const swapForY = true;
+    const SOL_MINT = "So11111111111111111111111111111111111111112";
+
+    // Get bin arrays needed for the swap
+    const binArrays = await pool.getBinArrayForSwap(swapForY);
+
+    // Get quote
+    const allowedSlippage = new BN(Math.round(slippagePct * 100)); // 1% = 100 bps
+    const quote = pool.swapQuote(inAmount, swapForY, allowedSlippage, binArrays);
+
+    if (!quote || !quote.minOutAmount) {
+      return { success: false, error: "Meteora swap quote failed — no liquidity", method: "meteora" };
+    }
+
+    // Execute swap
+    const tx = await pool.swap({
+      inToken: new PublicKey(baseMint),
+      outToken: new PublicKey(SOL_MINT),
+      inAmount,
+      minOutAmount: quote.minOutAmount,
+      lbPair: new PublicKey(poolAddress),
+      user: getWallet().publicKey,
+      binArraysPubkey: quote.binArraysPubkey,
+    });
+
+    const connection = getConnection();
+    const wallet = getWallet();
+    const txHash = await sendAndConfirmTransaction(connection, tx, [wallet]);
+
+    log("meteora_swap", `SUCCESS tx: ${txHash}`);
+
+    // Derive approximate out amount from quote
+    const outAmount = parseFloat(quote.outAmount.toString()) / Math.pow(10, 9);
+
+    return { success: true, tx: txHash, amount_out: outAmount, method: "meteora" };
+  } catch (error) {
+    log("meteora_swap_error", `Meteora swap failed: ${error.message}`);
+    return { success: false, error: error.message, method: "meteora" };
+  }
+}
+
+/**
+ * Verifies that a post-close token swap actually completed,
+ * tries Jupiter retry, then Meteora fallback if needed.
+ * @param {Object} opts
+ * @param {string} opts.baseMint - Expected token mint to verify
+ * @param {string} [opts.poolAddress] - Meteora pool address (for fallback)
+ * @param {number} [opts.balanceThresholdUsd=0.10] - Ignore if value below this
+ * @returns {Promise<{swapped: boolean, method: string, remaining_usd?: number, tx?: string}>}
+ */
+export async function verifyAndCompleteSwap({ baseMint, poolAddress, balanceThresholdUsd = 0.10 }) {
+  const { getWalletBalances } = await import("./wallet.js");
+  const { swapToken } = await import("./wallet.js");
+
+  // 1. Check current wallet balance
+  let balances = await getWalletBalances();
+  let token = balances.tokens?.find(t => t.mint === baseMint);
+
+  if (!token || token.usd < balanceThresholdUsd) {
+    log("swap_verifier", `Token ${baseMint.slice(0, 8)} already swapped or below threshold ($${token?.usd?.toFixed(2) ?? 0})`);
+    return { swapped: true, method: "already_swapped", remaining_usd: 0 };
+  }
+
+  log("swap_verifier", `Token ${baseMint.slice(0, 8)} still in wallet: ${token.balance} ($${token.usd.toFixed(2)}) — attempting fallback swap`);
+
+  // 2. Retry Jupiter swap (sometimes API glitch resolves)
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const result = await swapToken({ input_mint: baseMint, output_mint: "SOL", amount: token.balance });
+      if (result?.success) {
+        log("swap_verifier", `Jupiter retry attempt ${attempt} succeeded: ${result.tx}`);
+        return { swapped: true, method: "jupiter_retry", tx: result.tx };
+      }
+    } catch (_) { /* ignore, try next */ }
+  }
+
+  // 3. Meteora direct swap fallback
+  if (poolAddress) {
+    try {
+      const result = await swapViaMeteora({ poolAddress, baseMint, amount: token.balance });
+      if (result.success) {
+        log("swap_verifier", `Meteora fallback swap succeeded: ${result.tx}`);
+        return { swapped: true, method: "meteora", tx: result.tx };
+      }
+    } catch (_) { /* ignore */ }
+  }
+
+  // 4. Final verification — re-check wallet
+  balances = await getWalletBalances();
+  token = balances.tokens?.find(t => t.mint === baseMint);
+  const remaining = token ? token.usd : 0;
+
+  log("swap_verifier", `All swap attempts failed — token still in wallet ($${remaining.toFixed(2)})`);
+  return { swapped: false, method: "failed", remaining_usd: remaining };
 }

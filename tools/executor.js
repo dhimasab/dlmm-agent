@@ -8,6 +8,7 @@ import {
   claimFees,
   closePosition,
   searchPools,
+  verifyAndCompleteSwap,
 } from "./dlmm.js";
 import { getWalletBalances, swapToken } from "./wallet.js";
 import { studyTopLPers } from "./study.js";
@@ -534,15 +535,60 @@ export async function executeTool(name, args) {
             const balances = await getWalletBalances({});
             const token = balances.tokens?.find(t => t.mint === result.base_mint);
             if (token && token.usd >= 0.10) {
-              log("executor", `Auto-swapping ${token.symbol || result.base_mint.slice(0, 8)} ($${token.usd.toFixed(2)}) back to SOL`);
+              // Step 1: Try Jupiter swap first
+              const symbol = token.symbol || result.base_mint.slice(0, 8);
+              log("executor", `Auto-swapping ${symbol} ($${token.usd.toFixed(2)}) back to SOL`);
               const swapResult = await swapToken({ input_mint: result.base_mint, output_mint: "SOL", amount: token.balance });
-              // Tell the model the swap already happened so it doesn't call swap_token again
-              result.auto_swapped = true;
-              result.auto_swap_note = `Base token already auto-swapped back to SOL (${token.symbol || result.base_mint.slice(0, 8)} → SOL). Do NOT call swap_token again.`;
-              if (swapResult?.amount_out) result.sol_received = swapResult.amount_out;
+
+              // Step 2: Verify swap actually happened — check balance
+              if (swapResult?.success) {
+                result.auto_swapped = true;
+                result.auto_swap_note = `Base token auto-swapped to SOL (${symbol} → SOL).`;
+                if (swapResult.amount_out) result.sol_received = swapResult.amount_out;
+                log("executor", `Jupiter auto-swap succeeded: ${swapResult.tx}`);
+              } else {
+                // Jupiter failed (returned success:false or threw) — try fallback
+                log("executor_warn", `Jupiter auto-swap returned: ${swapResult?.error || "unknown error"} — trying fallback`);
+                const fallback = await verifyAndCompleteSwap({
+                  baseMint: result.base_mint,
+                  poolAddress: result.pool || result.pool_address,
+                });
+                if (fallback.swapped) {
+                  result.auto_swapped = true;
+                  result.auto_swap_method = fallback.method;
+                  result.auto_swap_note = `Base token auto-swapped via ${fallback.method} (${symbol} → SOL).`;
+                  log("executor", `Fallback auto-swap succeeded via ${fallback.method}: ${fallback.tx}`);
+                } else {
+                  result.auto_swapped = false;
+                  result.auto_swap_failed = true;
+                  result.auto_swap_note = `⚠️ Auto-swap FAILED — ${symbol} ($${fallback.remaining_usd?.toFixed(2)}) masih di wallet. Jupiter + Meteora langsung gagal.`;
+                  log("executor_error", `Auto-swap FAILED for ${symbol}: ${fallback.remaining_usd?.toFixed(2)} stuck in wallet`);
+                }
+              }
             }
           } catch (e) {
-            log("executor_warn", `Auto-swap after close failed: ${e.message}`);
+            // Outer catch for unexpected errors
+            log("executor_error", `Auto-swap after close crashed: ${e.message}`);
+            try {
+              const fallback = await verifyAndCompleteSwap({
+                baseMint: result.base_mint,
+                poolAddress: result.pool || result.pool_address,
+              });
+              if (fallback.swapped) {
+                result.auto_swapped = true;
+                result.auto_swap_method = fallback.method;
+                result.auto_swap_note = `Base token auto-swapped via ${fallback.method}.`;
+              } else {
+                result.auto_swapped = false;
+                result.auto_swap_failed = true;
+                result.auto_swap_note = `⚠️ Auto-swap FAILED — token masih di wallet. Semua metode gagal.`;
+                log("executor_error", `Auto-swap FAILED after crash recovery: ${fallback.remaining_usd?.toFixed(2)} stuck`);
+              }
+            } catch (_) {
+              result.auto_swapped = false;
+              result.auto_swap_failed = true;
+              result.auto_swap_note = "⚠️ Auto-swap FAILED — token stuck in wallet.";
+            }
           }
         }
       } else if (name === "claim_fees" && config.management.autoSwapAfterClaim && result.base_mint) {
@@ -550,11 +596,44 @@ export async function executeTool(name, args) {
           const balances = await getWalletBalances({});
           const token = balances.tokens?.find(t => t.mint === result.base_mint);
           if (token && token.usd >= 0.10) {
-            log("executor", `Auto-swapping claimed ${token.symbol || result.base_mint.slice(0, 8)} ($${token.usd.toFixed(2)}) back to SOL`);
-            await swapToken({ input_mint: result.base_mint, output_mint: "SOL", amount: token.balance });
+            const symbol = token.symbol || result.base_mint.slice(0, 8);
+            log("executor", `Auto-swapping claimed ${symbol} ($${token.usd.toFixed(2)}) back to SOL`);
+
+            // Step 1: Try Jupiter swap
+            const swapResult = await swapToken({ input_mint: result.base_mint, output_mint: "SOL", amount: token.balance });
+
+            // Step 2: Verify swap actually happened
+            if (swapResult?.success) {
+              log("executor", `Jupiter claim auto-swap succeeded: ${swapResult.tx}`);
+            } else {
+              // Jupiter failed — try fallback with verification
+              log("executor_warn", `Jupiter claim auto-swap returned: ${swapResult?.error || "unknown"} — trying fallback`);
+              const fallback = await verifyAndCompleteSwap({
+                baseMint: result.base_mint,
+                poolAddress: result.pool || result.pool_address,
+              });
+              if (fallback.swapped) {
+                log("executor", `Fallback claim auto-swap succeeded via ${fallback.method}: ${fallback.tx}`);
+              } else {
+                log("executor_error", `Claim auto-swap FAILED for ${symbol}: $${fallback.remaining_usd?.toFixed(2)} stuck in wallet`);
+              }
+            }
           }
         } catch (e) {
-          log("executor_warn", `Auto-swap after claim failed: ${e.message}`);
+          log("executor_error", `Auto-swap after claim crashed: ${e.message}`);
+          try {
+            const fallback = await verifyAndCompleteSwap({
+              baseMint: result.base_mint,
+              poolAddress: result.pool || result.pool_address,
+            });
+            if (fallback.swapped) {
+              log("executor", `Fallback claim auto-swap succeeded via ${fallback.method}`);
+            } else {
+              log("executor_error", `Claim auto-swap FAILED after crash recovery: $${fallback.remaining_usd?.toFixed(2)} stuck`);
+            }
+          } catch (_) {
+            log("executor_error", "Claim auto-swap FAILED — all methods crashed");
+          }
         }
       }
     }
