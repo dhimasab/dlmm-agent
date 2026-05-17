@@ -444,6 +444,21 @@ export async function notifyOutOfRange({ pair, minutesOOR }) {
   );
 }
 
+/**
+ * Notify user when auto-swap after close/claim fails completely.
+ */
+export async function notifySwapError({ pair, tokenMint, remainingUsd, reason, poolAddress }) {
+  if (hasActiveLiveMessage()) return;
+  await sendHTML(
+    `🚨 <b>Auto-Swap FAILED</b>\n` +
+    `Pair: ${pair || tokenMint?.slice(0, 8) || "?"}\n` +
+    `Token masih di wallet: <b>$${remainingUsd?.toFixed(2) ?? "?"}</b>\n` +
+    `Alasan: ${reason || "Semua metode gagal"}\n` +
+    `${poolAddress ? `Pool: <code>${poolAddress.slice(0, 12)}...</code>` : ""}\n` +
+    `Coba swap manual atau hubungi IT Support.`
+  );
+}
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }

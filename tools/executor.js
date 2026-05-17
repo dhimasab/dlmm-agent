@@ -32,7 +32,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USER_CONFIG_PATH = path.join(__dirname, "../user-config.json");
 const POOL_DISCOVERY_BASE = "https://pool-discovery-api.datapi.meteora.ag";
 import { log, logAction } from "../logger.js";
-import { notifyDeploy, notifyClose, notifySwap } from "../telegram.js";
+import { notifyDeploy, notifyClose, notifySwap, notifySwapError } from "../telegram.js";
 
 function numberOrNull(value) {
   const n = Number(value);
@@ -563,6 +563,13 @@ export async function executeTool(name, args) {
                   result.auto_swap_failed = true;
                   result.auto_swap_note = `⚠️ Auto-swap FAILED — ${symbol} ($${fallback.remaining_usd?.toFixed(2)}) masih di wallet. Jupiter + Meteora langsung gagal.`;
                   log("executor_error", `Auto-swap FAILED for ${symbol}: ${fallback.remaining_usd?.toFixed(2)} stuck in wallet`);
+                  notifySwapError({
+                    pair: result.pool_name || symbol,
+                    tokenMint: result.base_mint,
+                    remainingUsd: fallback.remaining_usd,
+                    reason: "Jupiter → Meteora: semua gagal",
+                    poolAddress: result.pool || result.pool_address,
+                  }).catch(() => {});
                 }
               }
             }
@@ -583,11 +590,26 @@ export async function executeTool(name, args) {
                 result.auto_swap_failed = true;
                 result.auto_swap_note = `⚠️ Auto-swap FAILED — token masih di wallet. Semua metode gagal.`;
                 log("executor_error", `Auto-swap FAILED after crash recovery: ${fallback.remaining_usd?.toFixed(2)} stuck`);
+                notifySwapError({
+                  pair: result.pool_name || result.base_mint?.slice(0, 8),
+                  tokenMint: result.base_mint,
+                  remainingUsd: fallback.remaining_usd,
+                  reason: "Crash recovery: semua metode gagal",
+                  poolAddress: result.pool || result.pool_address,
+                }).catch(() => {});
               }
             } catch (_) {
               result.auto_swapped = false;
               result.auto_swap_failed = true;
               result.auto_swap_note = "⚠️ Auto-swap FAILED — token stuck in wallet.";
+              log("executor_error", "Auto-swap FAILED — all methods crashed");
+              notifySwapError({
+                pair: result.pool_name || result.base_mint?.slice(0, 8),
+                tokenMint: result.base_mint,
+                remainingUsd: null,
+                reason: "Kode crash: semua metode exception",
+                poolAddress: result.pool || result.pool_address,
+              }).catch(() => {});
             }
           }
         }
@@ -616,6 +638,13 @@ export async function executeTool(name, args) {
                 log("executor", `Fallback claim auto-swap succeeded via ${fallback.method}: ${fallback.tx}`);
               } else {
                 log("executor_error", `Claim auto-swap FAILED for ${symbol}: $${fallback.remaining_usd?.toFixed(2)} stuck in wallet`);
+                notifySwapError({
+                  pair: result.pool_name || symbol,
+                  tokenMint: result.base_mint,
+                  remainingUsd: fallback.remaining_usd,
+                  reason: "Claim fee: Jupiter → Meteora gagal",
+                  poolAddress: result.pool || result.pool_address,
+                }).catch(() => {});
               }
             }
           }
@@ -630,9 +659,23 @@ export async function executeTool(name, args) {
               log("executor", `Fallback claim auto-swap succeeded via ${fallback.method}`);
             } else {
               log("executor_error", `Claim auto-swap FAILED after crash recovery: $${fallback.remaining_usd?.toFixed(2)} stuck`);
+              notifySwapError({
+                pair: result.pool_name || result.base_mint?.slice(0, 8),
+                tokenMint: result.base_mint,
+                remainingUsd: fallback.remaining_usd,
+                reason: "Claim crash recovery: semua gagal",
+                poolAddress: result.pool || result.pool_address,
+              }).catch(() => {});
             }
           } catch (_) {
             log("executor_error", "Claim auto-swap FAILED — all methods crashed");
+            notifySwapError({
+              pair: result.pool_name || result.base_mint?.slice(0, 8),
+              tokenMint: result.base_mint,
+              remainingUsd: null,
+              reason: "Claim: kode crash semua metode exception",
+              poolAddress: result.pool || result.pool_address,
+            }).catch(() => {});
           }
         }
       }
