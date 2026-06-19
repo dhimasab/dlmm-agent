@@ -17,7 +17,7 @@ pool-memory.js      Per-pool deploy history + snapshots (pool-memory.json)
 strategy-library.js Saved LP strategies (strategy-library.json)
 briefing.js         Daily Telegram briefing (HTML)
 telegram.js         Telegram bot: polling, notifications (deploy/close/swap/OOR)
-hivemind.js         Agent Meridian HiveMind sync
+hive-mind.js        Optional collective intelligence server sync
 smart-wallets.js    KOL/alpha wallet tracker (smart-wallets.json)
 token-blacklist.js  Permanent token blacklist (token-blacklist.json)
 logger.js           Daily-rotating log files + action audit trail
@@ -81,17 +81,26 @@ Sets defined in `agent.js:6-7`. If you add a tool, also add it to the relevant s
 | maxBundlersPct | screening | 30 |
 | maxTop10Pct | screening | 60 |
 | blockedLaunchpads | screening | [] |
+| deployAmountUsdc | management | 70 |
+| maxDeployAmountUsdc | management | 500 |
 | deployAmountSol | management | 0.5 |
 | maxDeployAmount | risk | 50 |
 | maxPositions | risk | 3 |
 | gasReserve | management | 0.2 |
 | positionSizePct | management | 0.35 |
 | minSolToOpen | management | 0.55 |
-| strategy | strategy | "spot" |
 | outOfRangeWaitMinutes | management | 30 |
 | managementIntervalMin | schedule | 10 |
 | screeningIntervalMin | schedule | 30 |
 | managementModel / screeningModel / generalModel | llm | openrouter/healer-alpha |
+
+**USDC mode deploy flow** (`tools/executor.js:650-674`):
+1. Snapshot pre-existing SOL (reserve)
+2. Swap `deployAmountUsdc` USDC → SOL via Jupiter
+3. Deduct `RENT_BUFFER` (0.07 SOL) from swap yield for position account rent + tx fees
+4. Set `amount_y = swapYield - 0.07`, deploy via DLMM SDK
+5. Reserve SOL stays untouched — no auto top-up
+6. On failure, rollback swaps all excess SOL above reserve back to USDC
 
 **`computeDeployAmount(walletSol)`** — scales position size with wallet balance (compounding). Formula: `clamp(deployable × positionSizePct, floor=deployAmountSol, ceil=maxDeployAmount)`.
 
@@ -102,9 +111,6 @@ Sets defined in `agent.js:6-7`. If you add a tool, also add it to the relevant s
 1. **Deploy**: `deploy_position` → executor safety checks → `trackPosition()` in state.js → Telegram notify
 2. **Monitor**: management cron → `getMyPositions()` → `getPositionPnl()` → OOR detection → pool-memory snapshots
 3. **Close**: `close_position` → `recordPerformance()` in lessons.js → auto-swap base token to SOL → Telegram notify
-   - Close triggers: stop loss (Rule 1), take profit (Rule 2), OOR above limit after `outOfRangeWaitMinutes` (Rule 3), low yield (Rule 4).
-   - OOR **below** range → immediate stop loss (if `outOfRangeDownTriggersSL=true`).
-   - OOR **above** range → wait `outOfRangeWaitMinutes` (default 45min) before closing.
 4. **Learn**: `evolveThresholds()` runs on performance data → updates config.screening → persists to user-config.json
 
 ---
@@ -116,22 +122,27 @@ Before `deploy_position` executes:
 - Position count must be below `maxPositions` (force-fresh scan, no cache)
 - No duplicate pool allowed (same pool_address)
 - No duplicate base token allowed (same base_mint in another pool)
-- If `amount_x > 0`: strip `amount_y` and `amount_sol` (tokenX-only deploy — no SOL needed)
-- SOL balance must cover `amount_y + gasReserve` (skipped for tokenX-only)
+- Deploy amount must include positive SOL (`amount_y` or `amount_sol`)
+- Range width must be at least the configured safe bins floor (`minBinsBelow`, never below 35)
+- Single-side SOL deploys must keep `bins_above=0`
+- USDC mode: USDC balance must cover `deployAmountUsdc`; SOL just needs 0.005 for tx fees
+- SOL mode: SOL balance must cover `amount_y + 0.005` (no gasReserve hard requirement)
 - `blockedLaunchpads` enforced in `getTopCandidates()` before LLM sees candidates
 
 ---
 
 ## bins_below Calculation (SCREENER)
 
-Linear formula based on pool volatility (set in screener prompt, `index.js`):
+Linear formula based on pool volatility (set in screener prompt, `index.js`). The lower/upper bounds are configurable, with a hard safety floor of 35 bins:
 
 ```
-bins_below = round(35 + (volatility / 5) * 34), clamped to [35, 69]
+bins_below = round(minBinsBelow + (volatility / 5) * (maxBinsBelow - minBinsBelow))
+clamped to [minBinsBelow, maxBinsBelow]
 ```
 
-- Low volatility (0) → 35 bins
-- High volatility (5+) → 69 bins
+- Volatility must be finite and > 0; zero/missing volatility is treated as an unusable feed
+- Low valid volatility → minBinsBelow
+- High volatility (5+) → maxBinsBelow
 - Any value in between is valid (continuous, not tiered)
 
 ---
@@ -199,9 +210,11 @@ const actualBaseFee = baseFactor > 0
 
 ---
 
-## HiveMind
+## Hive Mind (hive-mind.js)
 
-Agent Meridian HiveMind sync is handled by `hivemind.js`. It uses built-in Agent Meridian defaults unless overridden by config or env.
+Optional feature. Enabled by setting `HIVE_MIND_URL` and `HIVE_MIND_API_KEY` in `.env`.
+Syncs lessons/deploys to a shared server, queries consensus patterns.
+Not required for normal operation.
 
 ---
 
@@ -227,3 +240,5 @@ Agent Meridian HiveMind sync is handled by `hivemind.js`. It uses built-in Agent
 
 - `lessons.js evolveThresholds()` evolves `maxVolatility` + `minFeeTvlRatio` (wrong key names — should be `minFeeActiveTvlRatio`; `maxVolatility` doesn't exist in config at all). The evolution is a no-op for those keys.
 - `get_wallet_positions` tool (dlmm.js) is in definitions.js but not in MANAGER_TOOLS or SCREENER_TOOLS — only available in GENERAL role.
+- `RENT_BUFFER` (0.07 SOL) is hardcoded in `executor.js:652`. Covers position account rent (~0.057 SOL) + token account rent (~0.002 SOL) + tx fees. Not user-configurable.
+- `gasReserve` is now a soft floor in `computeDeployAmount()` for SOL mode only — no longer enforced as a hard safety check. No auto top-up exists anywhere in the system.

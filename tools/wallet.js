@@ -232,13 +232,17 @@ export async function swapToken({
       );
     }
 
+    // Jupiter V2 returns amounts in smallest units; convert to UI amounts
+    const outDecimals = output_mint === SOL_MINT ? 9 : (await connection.getParsedAccountInfo(new PublicKey(output_mint))).value?.data?.parsed?.info?.decimals ?? 6;
+    const inDecimals = input_mint === SOL_MINT ? 9 : (await connection.getParsedAccountInfo(new PublicKey(input_mint))).value?.data?.parsed?.info?.decimals ?? 6;
+
     return {
       success: true,
       tx: result.signature,
       input_mint,
       output_mint,
-      amount_in: result.inputAmountResult,
-      amount_out: result.outputAmountResult,
+      amount_in: Number(result.inputAmountResult) / (10 ** inDecimals),
+      amount_out: Number(result.outputAmountResult) / (10 ** outDecimals),
       referral_account: referralParams?.referralAccount || null,
       referral_fee_bps_requested: referralParams?.referralFee || 0,
       fee_bps_applied: order.feeBps ?? null,

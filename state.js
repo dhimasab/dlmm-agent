@@ -57,6 +57,7 @@ export function trackPosition({
   position,
   pool,
   pool_name,
+  base_mint = null,
   strategy,
   bin_range = {},
   amount_sol,
@@ -73,7 +74,8 @@ export function trackPosition({
   state.positions[position] = {
     position,
     pool,
-    pool_name,
+    pool_name: pool_name || (base_mint ? `${base_mint.slice(0,4)}..${base_mint.slice(-4)}-SOL` : null),
+    base_mint,
     strategy,
     bin_range,
     amount_sol,
@@ -505,6 +507,7 @@ export function syncOpenPositions(active_addresses) {
   const state = load();
   const activeSet = new Set(active_addresses);
   let changed = false;
+  const autoClosed = [];
 
   for (const posId in state.positions) {
     const pos = state.positions[posId];
@@ -521,8 +524,10 @@ export function syncOpenPositions(active_addresses) {
     pos.closed_at = new Date().toISOString();
     pos.notes.push(`Auto-closed during state sync (not found on-chain)`);
     changed = true;
+    autoClosed.push({ position: posId, pool: pos.pool, pool_name: pos.pool_name });
     log("state", `Position ${posId} auto-closed (missing from on-chain data)`);
   }
 
   if (changed) save(state);
+  return autoClosed;
 }

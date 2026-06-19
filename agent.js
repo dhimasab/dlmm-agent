@@ -142,6 +142,16 @@ function isToolChoiceRequiredError(error) {
   return /tool_choice/i.test(message) && /required/i.test(message);
 }
 
+function isThinkingModeToolChoiceError(error) {
+  const message = String(error?.message || error?.error?.message || error || "");
+  return /thinking mode does not support/i.test(message) && /tool_choice/i.test(message);
+}
+
+function isToolChoiceNotSupportedError(error) {
+  const message = String(error?.message || error?.error?.message || error || "");
+  return /tool_choice.*is not supported/i.test(message);
+}
+
 /**
  * Core ReAct agent loop.
  *
@@ -167,7 +177,7 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
   }
   const systemPrompt = buildSystemPrompt(agentType, portfolio, positions, stateSummary, lessons, perfSummary, weightsSummary, decisionSummary);
 
-  let providerMode = "user_embedded";
+  let providerMode = "system";
   let messages = buildMessages(systemPrompt, sessionHistory, goal, providerMode);
 
   // Track write tools fired this session — prevent the model from calling the same
@@ -179,6 +189,8 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
   const mustUseRealTool = shouldRequireRealToolUse(goal, agentType, interactive);
   let sawToolCall = false;
   let noToolRetryCount = 0;
+  // Stays true for the whole run once a thinking-mode provider rejects tool_choice
+  let omitToolChoice = false;
 
   let emptyStreak = 0;
   for (let step = 0; step < maxSteps; step++) {
@@ -193,19 +205,19 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
       let usedModel = activeModel;
       // Force a tool call on step 0 for action intents — prevents the model from inventing deploy/close outcomes
       const ACTION_INTENTS = /\b(deploy|open|add liquidity|close|exit|withdraw|claim|swap|block|unblock)\b/i;
-      let toolChoice = "auto"; // OpenCode/Kimi incompatible with tool_choice required
+      let toolChoice = (step === 0 && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const toolsToSend = getToolsForRole(agentType, goal);
-          response = await client.chat.completions.create({
+          const reqParams = {
             model: usedModel,
             messages,
             tools: getToolsForRole(agentType, goal),
-            tool_choice: toolChoice,
             temperature: config.llm.temperature,
             max_tokens: maxOutputTokens ?? config.llm.maxTokens,
-          });
+          };
+          if (!omitToolChoice) reqParams.tool_choice = toolChoice;
+          response = await client.chat.completions.create(reqParams);
         } catch (error) {
           if (providerMode === "system" && isSystemRoleError(error)) {
             providerMode = "user_embedded";
@@ -219,7 +231,18 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
             log("agent", "Provider rejected tool_choice=required — retrying with tool_choice=auto");
             attempt -= 1;
             continue;
-          log("agent", `Provider error: ${error.status} ${error.message} ${JSON.stringify(error.error?.message)}`);
+          }
+          if (!omitToolChoice && isThinkingModeToolChoiceError(error)) {
+            omitToolChoice = true;
+            log("agent", "Provider thinking mode does not support tool_choice — retrying without it");
+            attempt -= 1;
+            continue;
+          }
+          if (!omitToolChoice && isToolChoiceNotSupportedError(error)) {
+            omitToolChoice = true;
+            log("agent", "Provider does not support tool_choice — retrying without it");
+            attempt -= 1;
+            continue;
           }
           throw error;
         }
@@ -244,8 +267,8 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
         throw new Error(`API returned no choices: ${response.error?.message || JSON.stringify(response)}`);
       }
       const msg = response.choices[0].message;
-      const invalidToolArgErrors = new Map();
-      // Keep tool-call history API-valid, but never execute unrecoverable args.
+      // Repair malformed tool call JSON before pushing to history —
+      // the API rejects the next request if history contains invalid JSON args
       if (msg.tool_calls) {
         for (const tc of msg.tool_calls) {
           if (tc.function?.arguments) {
@@ -257,9 +280,7 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
                 log("warn", `Repaired malformed JSON args for ${tc.function.name}`);
               } catch {
                 tc.function.arguments = "{}";
-                const error = `Invalid tool arguments for ${tc.function.name}`;
-                invalidToolArgErrors.set(tc.id, error);
-                log("error", `${error}: could not repair JSON`);
+                log("error", `Could not repair JSON args for ${tc.function.name} — cleared to {}`);
               }
             }
           }
@@ -299,24 +320,11 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
       }
       sawToolCall = true;
 
-      // Execute each tool call in parallel
-      const toolResults = await Promise.all(msg.tool_calls.map(async (toolCall) => {
+      // Execute tool calls sequentially to prevent race conditions (esp. duplicate deploys)
+      const toolResults = [];
+      for (const toolCall of msg.tool_calls) {
         const functionName = toolCall.function.name.replace(/<.*$/, "").trim();
         let functionArgs;
-
-        if (invalidToolArgErrors.has(toolCall.id)) {
-          const result = {
-            success: false,
-            error: invalidToolArgErrors.get(toolCall.id),
-            blocked: true,
-          };
-          await onToolFinish?.({ name: functionName, args: {}, result, success: false, step });
-          return {
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(result),
-          };
-        }
 
         try {
           functionArgs = JSON.parse(toolCall.function.arguments);
@@ -326,17 +334,7 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
             log("warn", `Repaired malformed JSON args for ${functionName}`);
           } catch (parseError) {
             log("error", `Failed to parse args for ${functionName}: ${parseError.message}`);
-            const result = {
-              success: false,
-              error: `Invalid tool arguments for ${functionName}`,
-              blocked: true,
-            };
-            await onToolFinish?.({ name: functionName, args: {}, result, success: false, step });
-            return {
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: JSON.stringify(result),
-            };
+            functionArgs = {};
           }
         }
 
@@ -350,11 +348,12 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
             success: false,
             step,
           });
-          return {
+          toolResults.push({
             role: "tool",
             tool_call_id: toolCall.id,
             content: JSON.stringify({ blocked: true, reason: `${functionName} already attempted this session — do not retry. If it failed, report the error and stop.` }),
-          };
+          });
+          continue;
         }
 
         await onToolStart?.({ name: functionName, args: functionArgs, step });
@@ -372,12 +371,12 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
         if (NO_RETRY_TOOLS.has(functionName)) firedOnce.add(functionName);
         else if (ONCE_PER_SESSION.has(functionName) && result.success === true) firedOnce.add(functionName);
 
-        return {
+        toolResults.push({
           role: "tool",
           tool_call_id: toolCall.id,
           content: JSON.stringify(result),
-        };
-      }));
+        });
+      }
 
       messages.push(...toolResults);
     } catch (error) {
