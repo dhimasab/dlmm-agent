@@ -10,8 +10,9 @@
 
 import fs from "fs";
 import { log } from "./logger.js";
+import { repoPath } from "./repo-root.js";
 
-const STATE_FILE = "./state.json";
+const STATE_FILE = repoPath("state.json");
 
 const MAX_RECENT_EVENTS = 20;
 const MAX_INSTRUCTION_LENGTH = 280;
@@ -57,7 +58,6 @@ export function trackPosition({
   position,
   pool,
   pool_name,
-  base_mint = null,
   strategy,
   bin_range = {},
   amount_sol,
@@ -69,13 +69,16 @@ export function trackPosition({
   organic_score,
   initial_value_usd,
   signal_snapshot = null,
+  entry_mcap = null,
+  entry_tvl = null,
+  entry_volume = null,
+  entry_holders = null,
 }) {
   const state = load();
   state.positions[position] = {
     position,
     pool,
-    pool_name: pool_name || (base_mint ? `${base_mint.slice(0,4)}..${base_mint.slice(-4)}-SOL` : null),
-    base_mint,
+    pool_name,
     strategy,
     bin_range,
     amount_sol,
@@ -87,10 +90,13 @@ export function trackPosition({
     initial_fee_tvl_24h: fee_tvl_ratio,
     organic_score,
     initial_value_usd,
+    entry_mcap,
+    entry_tvl,
+    entry_volume,
+    entry_holders,
     signal_snapshot: signal_snapshot || null,
     deployed_at: new Date().toISOString(),
     out_of_range_since: null,
-    out_of_range_direction: null,
     last_claim_at: null,
     total_fees_claimed_usd: 0,
     rebalance_count: 0,
@@ -193,6 +199,25 @@ export function recordClose(position_address, reason) {
 }
 
 /**
+ * Record a rebalance (close + redeploy).
+ */
+export function recordRebalance(old_position, new_position) {
+  const state = load();
+  const old = state.positions[old_position];
+  if (old) {
+    old.closed = true;
+    old.closed_at = new Date().toISOString();
+    old.notes.push(`Rebalanced into ${new_position} at ${old.closed_at}`);
+  }
+  const newPos = state.positions[new_position];
+  if (newPos) {
+    newPos.rebalance_count = (old?.rebalance_count || 0) + 1;
+    newPos.notes.push(`Rebalanced from ${old_position}`);
+  }
+  save(state);
+}
+
+/**
  * Set a persistent instruction for a position (e.g. "hold until 5% profit").
  * Overwrites any previous instruction. Pass null to clear.
  */
@@ -220,7 +245,7 @@ export function queuePeakConfirmation(position_address, candidatePnlPct, options
     pos.pending_peak_pnl_pct = null;
     pos.pending_peak_started_at = null;
     save(state);
-    log("state", `Position ${position_address} peak PnL accepted at ${candidatePnlPct.toFixed(2)}% from relay poll`);
+    log("state", `Position ${position_address} peak PnL accepted at ${candidatePnlPct.toFixed(2)}% from rpc poll`);
     return true;
   }
 
@@ -317,6 +342,15 @@ export function resolvePendingTrailingDrop(position_address, currentPnlPct, trai
 }
 
 /**
+ * Get all tracked positions (optionally filter open-only).
+ */
+export function getTrackedPositions(openOnly = false) {
+  const state = load();
+  const all = Object.values(state.positions);
+  return openOnly ? all.filter((p) => !p.closed) : all;
+}
+
+/**
  * Get a single tracked position.
  */
 export function getTrackedPosition(position_address) {
@@ -364,7 +398,7 @@ export function getStateSummary() {
  * Returns { action, reason } or null if no exit needed.
  */
 export function updatePnlAndCheckExits(position_address, positionData, mgmtConfig) {
-  const { pnl_pct: currentPnlPct, pnl_pct_suspicious, in_range: relayInRange, fee_per_tvl_24h, active_bin, lower_bin, upper_bin } = positionData;
+  const { pnl_pct: currentPnlPct, pnl_pct_suspicious, in_range, fee_per_tvl_24h } = positionData;
   const state = load();
   const pos = state.positions[position_address];
   if (!pos || pos.closed) return null;
@@ -390,28 +424,13 @@ export function updatePnlAndCheckExits(position_address, positionData, mgmtConfi
     log("state", `Position ${position_address} trailing TP activated (confirmed peak: ${pos.peak_pnl_pct}%)`);
   }
 
-  // Fix: compute in_range from bin data to override relay bug
-  // Relay sometimes returns in_range: true when active_bin is outside the range
-  let in_range = relayInRange;
-  if (active_bin != null && lower_bin != null && upper_bin != null) {
-    const actualInRange = active_bin >= lower_bin && active_bin <= upper_bin;
-    if (actualInRange !== relayInRange) {
-      log("state", `Position ${position_address} relay in_range=${relayInRange} but bin data says ${actualInRange} (active=${active_bin} range=[${lower_bin},${upper_bin}]) — overriding relay`);
-      in_range = actualInRange;
-    }
-  }
-
   // Update OOR state
   if (in_range === false && !pos.out_of_range_since) {
     pos.out_of_range_since = new Date().toISOString();
-    if (active_bin != null && upper_bin != null) {
-      pos.out_of_range_direction = active_bin > upper_bin ? "up" : "down";
-    }
     changed = true;
-    log("state", `Position ${position_address} marked out of range (${pos.out_of_range_direction})`);
+    log("state", `Position ${position_address} marked out of range`);
   } else if (in_range === true && pos.out_of_range_since) {
     pos.out_of_range_since = null;
-    pos.out_of_range_direction = null;
     changed = true;
     log("state", `Position ${position_address} back in range`);
   }
@@ -441,16 +460,8 @@ export function updatePnlAndCheckExits(position_address, positionData, mgmtConfi
     }
   }
 
-  // ── OOR below range = Stop Loss (immediate) ───────────────────
-  if (mgmtConfig.outOfRangeDownTriggersSL && pos.out_of_range_direction === "down") {
-    return {
-      action: "STOP_LOSS",
-      reason: "OOR below range - Stop Loss triggered",
-    };
-  }
-
-  // ── OOR above range = wait ─────────────────────────────────────
-  if (pos.out_of_range_since && pos.out_of_range_direction === "up") {
+  // ── Out of range too long ──────────────────────────────────────
+  if (pos.out_of_range_since) {
     const minutesOOR = Math.floor((Date.now() - new Date(pos.out_of_range_since).getTime()) / 60000);
     if (minutesOOR >= mgmtConfig.outOfRangeWaitMinutes) {
       return {
@@ -507,7 +518,6 @@ export function syncOpenPositions(active_addresses) {
   const state = load();
   const activeSet = new Set(active_addresses);
   let changed = false;
-  const autoClosed = [];
 
   for (const posId in state.positions) {
     const pos = state.positions[posId];
@@ -524,10 +534,8 @@ export function syncOpenPositions(active_addresses) {
     pos.closed_at = new Date().toISOString();
     pos.notes.push(`Auto-closed during state sync (not found on-chain)`);
     changed = true;
-    autoClosed.push({ position: posId, pool: pos.pool, pool_name: pos.pool_name });
     log("state", `Position ${posId} auto-closed (missing from on-chain data)`);
   }
 
   if (changed) save(state);
-  return autoClosed;
 }

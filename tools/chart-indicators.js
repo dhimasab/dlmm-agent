@@ -1,10 +1,18 @@
 import { config } from "../config.js";
 import { log } from "../logger.js";
-import { agentMeridianJson, getAgentMeridianHeaders } from "./agent-meridian.js";
-import { safeNumber } from "../utils/number.js";
 
 const DEFAULT_INTERVALS = ["5_MINUTE"];
 const DEFAULT_CANDLES = 298;
+
+function getApiBase() {
+  return String(config.api.url || "https://api.agentmeridian.xyz/api").replace(/\/+$/, "");
+}
+
+function getHeaders() {
+  const headers = {};
+  if (config.api.publicApiKey) headers["x-api-key"] = config.api.publicApiKey;
+  return headers;
+}
 
 function normalizeIntervals(intervals) {
   const list = Array.isArray(intervals) ? intervals : DEFAULT_INTERVALS;
@@ -14,7 +22,8 @@ function normalizeIntervals(intervals) {
 }
 
 function safeNum(value) {
-  return safeNumber(value, null);
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function buildSignalSummary(payload) {
@@ -202,7 +211,7 @@ function evaluatePreset(side, preset, payload) {
   }
 }
 
-async function fetchChartIndicatorsForMint(
+export async function fetchChartIndicatorsForMint(
   mint,
   {
     interval,
@@ -219,9 +228,20 @@ async function fetchChartIndicatorsForMint(
   });
   if (refresh) search.set("refresh", "1");
 
-  return agentMeridianJson(`/chart-indicators/${mint}?${search.toString()}`, {
-    headers: getAgentMeridianHeaders(),
+  const res = await fetch(`${getApiBase()}/chart-indicators/${mint}?${search.toString()}`, {
+    headers: getHeaders(),
   });
+  const text = await res.text().catch(() => "");
+  let payload = {};
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = { raw: text };
+  }
+  if (!res.ok) {
+    throw new Error(payload?.error || `chart indicators ${res.status}`);
+  }
+  return payload;
 }
 
 export async function confirmIndicatorPreset({
