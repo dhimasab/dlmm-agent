@@ -74,41 +74,5 @@
   "healthCheckIntervalMin": 60,
 
   "minClaimAmount": 10,
-  "autoSwapAfterClaim": true,
-  "outOfRangeBinsToClose": 10,
-  "outOfRangeWaitMinutes": 30,
-  "oorCooldownTriggerCount": 3,
-  "oorCooldownHours": 12,
-  "repeatDeployCooldownEnabled": true,
-  "repeatDeployCooldownTriggerCount": 3,
-  "repeatDeployCooldownHours": 12,
-  "repeatDeployCooldownScope": "token",
-  "repeatDeployCooldownMinFeeEarnedPct": 0,
-  "minVolumeToRebalance": 1000,
-  "minAgeBeforeYieldCheck": 60,
-  "minFeePerTvl24h": 7,
-
-  "temperature": 0.373,
-  "maxTokens": 4096,
-  "maxSteps": 20,
-
-  "pnlSource": "rpc",
-  "pnlRpcUrl": "https://pump.helius-rpc.com",
-  "pnlPollIntervalSec": 3,
-  "pnlDepositCacheTtlSec": 300,
-  "gmgnFeeSource": "gmgn",
-
-  "chartIndicators": {
-    "enabled": false,
-    "entryPreset": "supertrend_break",
-    "exitPreset": "supertrend_break",
-    "rsiLength": 2,
-    "intervals": [ "5_MINUTE" ],
-    "candles": 298,
-    "rsiOversold": 30,
-    "rsiOverbought": 80,
-    "requireAllIntervals": false
-  },
-
-  "telegramChatId": ""
+  "autoSwapAfterClaim": true
 }
