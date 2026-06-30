@@ -86,7 +86,7 @@ WALLET_PRIVATE_KEY=your_base58_private_key
 RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
 HELIUS_API_KEY=your_helius_key
 
-# ── Jupiter API (opsional, tanpa key juga jalan) ──────────
+# ── Jupiter API (optional, works without key) ─────────────
 JUPITER_API_KEY=
 
 # ── Deploy Settings (1 SOL wallet) ─────────────────────────
@@ -204,10 +204,10 @@ Automatically converts excess SOL to USDC when no positions are open, keeping id
 | `autoSweepSolToUsdc` | false | Enable auto-sweep |
 | `capitalSol` | 15 | Amount of SOL to keep in wallet (excess is swapped) |
 
-| Key | Default | Deskripsi |
-|-----|---------|-----------|
-| `autoSweepSolToUsdc` | false | Aktifkan auto-sweep |
-| `capitalSol` | 15 | Jumlah SOL yang ditahan di wallet (sisanya di-swap) |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `autoSweepSolToUsdc` | false | Enable auto-sweep |
+| `capitalSol` | 15 | SOL reserve kept in wallet (excess is swapped) |
 
 ---
 
