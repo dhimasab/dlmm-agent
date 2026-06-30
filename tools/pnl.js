@@ -13,7 +13,7 @@ import {
 // via the Meteora DLMM SDK on a public RPC (pump.helius). Deposit history
 // (cost basis, withdrawals, claimed fees) comes ONLY from the Meteora /pnl
 // API — its precomputed live pnl/balances are intentionally ignored. Token
-// USD prices come from Jupiter. No LPAgent / agentmeridian dependency, so the
+// USD prices come from Jupiter. No LPAgent / agentdlmm-agent dependency, so the
 // poller can run aggressively on fully public resources.
 
 const JUP_SEARCH = "https://datapi.jup.ag/v1/assets/search";

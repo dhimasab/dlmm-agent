@@ -1,8 +1,8 @@
-# Meridian
+# DLMM Agent
 
-**Autonomous Meteora DLMM liquidity management agent for Solana, powered by LLMs.**
+**Autonomous Meteora DLMM liquidity management agent for Solana, powered by LLMs.****Autonomous Meteora DLMM liquidity management agent for Solana, powered by LLMs.**
 
-Meridian runs continuous screening and management cycles, deploying capital into high-quality Meteora DLMM pools and closing positions based on live PnL, yield, and range data. It learns from every position it closes.
+DLMM Agent runs continuous screening and management cycles, deploying capital into high-quality Meteora DLMM pools and closing positions based on live PnL, yield, and range data. It learns from every position it closes.
 
 ---
 
@@ -11,21 +11,20 @@ Meridian runs continuous screening and management cycles, deploying capital into
 This configuration uses **OpenCode API** with **DeepSeek-v4-Flash** model for cost-effective autonomous trading.
 
 ```bash
-# Clone
-git clone https://github.com/dhimasab/meridianagent.git
-cd meridianagent
+# Install via npm (recommended)
+npm install -g dlmm-agent
 
-# Install
-npm install
+# Or run directly with npx (no install)
+npx dlmm-agent start
 
 # Setup .env (see below)
 # Edit user-config.json if needed
 
 # Test (dry run)
-npm run dev
+dlmm-agent start
 
 # Go live
-npm start
+dlmm-agent start
 ```
 
 ---
@@ -47,6 +46,9 @@ WALLET_PRIVATE_KEY=your_base58_private_key
 # ── Solana RPC ─────────────────────────────────────────────
 RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
 HELIUS_API_KEY=your_helius_key
+
+# ── Jupiter API (opsional, tanpa key juga jalan) ──────────
+JUPITER_API_KEY=
 
 # ── Deploy Settings (1 SOL wallet) ─────────────────────────
 DEPLOY_AMOUNT_SOL=0.05         # Per position
@@ -86,30 +88,23 @@ LOG_LEVEL=info
 
 ## Deploy to VPS
 
-### 1. Create GitHub private repo
-```
-https://github.com/YOUR_USERNAME/meridianagent
-```
-
-### 2. Clone on VPS
+### 1. Install via npm
 ```bash
 ssh ubuntu@YOUR_VPS_IP
-cd ~
-git clone https://github.com/YOUR_USERNAME/meridianagent.git meridian
-cd meridian
+npm install -g dlmm-agent
+dlmm-agent
 ```
 
-### 3. Setup & run
+### 2. Setup & run
 ```bash
 # Copy .env (secure method recommended)
 # nano .env
 # (paste your config, Ctrl+X to save)
 
-npm install
-npm start
+dlmm-agent start
 ```
 
-### 4. Monitor from anywhere
+### 3. Monitor from anywhere
 ```bash
 # REPL commands while running:
 > /status           # Wallet + positions
@@ -132,7 +127,7 @@ npm start
 
 ## How It Works
 
-Meridian runs a **ReAct agent loop** — each cycle the LLM reasons over live data, calls tools, and acts.
+DLMM Agent runs a **ReAct agent loop** — each cycle the LLM reasons over live data, calls tools, and acts.
 
 | Agent | Interval | Role |
 |---|---|---|
@@ -152,7 +147,7 @@ Meridian runs a **ReAct agent loop** — each cycle the LLM reasons over live da
 
 ### Direction-Aware OOR Logic
 
-Meridian now distinguishes between OOR directions with different exit behaviors:
+DLMM Agent now distinguishes between OOR directions with different exit behaviors:
 
 | Direction | Behavior |
 |-----------|----------|
@@ -163,7 +158,7 @@ Meridian now distinguishes between OOR directions with different exit behaviors:
 
 ```json
 {
-  "outOfRangeWaitMinutes": 45,
+  "outOfRangeWaitMinutes": 30,
   "outOfRangeDownTriggersSL": true,
   "stopLossPct": -10
 }
@@ -205,7 +200,7 @@ Meridian now distinguishes between OOR directions with different exit behaviors:
 |---|---|---|
 | Dry run | `npm run dev` | Test without transactions |
 | Live | `npm start` | Autonomous trading |
-| CLI tools | `meridian <command>` | Direct tool calls |
+| CLI tools | `dlmm-agent <command>` | Direct tool calls |
 
 ---
 

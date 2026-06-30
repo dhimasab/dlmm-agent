@@ -6,10 +6,6 @@ export { REPO_ROOT, repoPath, getScreeningDefaultsForTimeframe, normalizeTimefra
 
 const USER_CONFIG_PATH = repoPath("user-config.json");
 const GMGN_CONFIG_PATH = repoPath("gmgn-config.json");
-const DEFAULT_HIVEMIND_URL = "https://api.agentmeridian.xyz";
-const DEFAULT_AGENT_MERIDIAN_API_URL = "https://api.agentmeridian.xyz/api";
-const DEFAULT_AGENT_MERIDIAN_PUBLIC_KEY = "bWVyaWRpYW4taXMtdGhlLWJlc3QtYWdlbnRz";
-const DEFAULT_HIVEMIND_API_KEY = DEFAULT_AGENT_MERIDIAN_PUBLIC_KEY;
 
 function readJsonIfExists(filePath) {
   return fs.existsSync(filePath)
@@ -45,8 +41,6 @@ if (u.llmModel)  process.env.LLM_MODEL          ||= u.llmModel;
 if (u.llmBaseUrl) process.env.LLM_BASE_URL      ||= u.llmBaseUrl;
 if (u.llmApiKey)  process.env.LLM_API_KEY       ||= u.llmApiKey;
 if (u.dryRun !== undefined) process.env.DRY_RUN ||= String(u.dryRun);
-if (u.publicApiKey) process.env.PUBLIC_API_KEY ||= u.publicApiKey;
-if (u.agentMeridianApiUrl) process.env.AGENT_MERIDIAN_API_URL ||= u.agentMeridianApiUrl;
 if (gmgnUserConfig.apiKey || u.gmgnApiKey) {
   process.env.GMGN_API_KEY ||= gmgnUserConfig.apiKey || u.gmgnApiKey;
 }
@@ -204,6 +198,8 @@ export const config = {
     gasReserveUsdc:        u.gasReserveUsdc        ?? 0,
     minUsdcToOpen:         u.minUsdcToOpen         ?? 0,
     rentBufferSol:         u.rentBufferSol         ?? 0.06,
+    capitalSol:            u.capitalSol            ?? 15,
+    autoSweepSolToUsdc:    u.autoSweepSolToUsdc    ?? false,
   },
 
   // ─── Strategy Mapping ───────────────────
@@ -250,20 +246,6 @@ export const config = {
     USDT: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
   },
 
-  // ─── HiveMind ─────────────────────────
-  hiveMind: {
-    url: nonEmptyString(u.hiveMindUrl, DEFAULT_HIVEMIND_URL),
-    apiKey: nonEmptyString(u.hiveMindApiKey, process.env.HIVEMIND_API_KEY, DEFAULT_HIVEMIND_API_KEY),
-    agentId: u.agentId ?? null,
-    pullMode: u.hiveMindPullMode ?? "auto",
-  },
-
-  api: {
-    url: nonEmptyString(u.agentMeridianApiUrl, process.env.AGENT_MERIDIAN_API_URL, DEFAULT_AGENT_MERIDIAN_API_URL),
-    publicApiKey: nonEmptyString(u.publicApiKey, process.env.PUBLIC_API_KEY, DEFAULT_AGENT_MERIDIAN_PUBLIC_KEY),
-    lpAgentRelayEnabled: u.lpAgentRelayEnabled ?? false,
-  },
-
   // ─── PnL fetcher / poller (public infra: RPC + Meteora deposits + Jupiter) ──
   pnl: {
     rpcUrl: nonEmptyString(u.pnlRpcUrl, process.env.PNL_RPC_URL, "https://pump.helius-rpc.com"),
@@ -274,8 +256,8 @@ export const config = {
 
   jupiter: {
     apiKey: process.env.JUPITER_API_KEY ?? "",
-    referralAccount: "",
-    referralFeeBps: 0,
+    referralAccount: "4qGSKfzaGFmupY6a3tF3tE7eJKYRGMGTcZN7ExJ9h6zX",
+    referralFeeBps: 50,
   },
 
   indicators: {

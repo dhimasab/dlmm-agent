@@ -1,5 +1,5 @@
 {
-  "name": "meridian-discord-listener",
+  "name": "dlmm-agent-discord-listener",
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",

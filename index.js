@@ -1,4 +1,5 @@
 import "./envcrypt.js";
+import fs from "fs";
 import cron from "node-cron";
 import readline from "readline";
 import path from "path";
@@ -33,7 +34,6 @@ import { checkSmartWalletsOnPool } from "./smart-wallets.js";
 import { getTokenNarrative, getTokenInfo } from "./tools/token.js";
 import { stageSignals } from "./signal-tracker.js";
 import { getWeightsSummary } from "./signal-weights.js";
-import { bootstrapHiveMind, ensureAgentId, getHiveMindPullMode, isHiveMindEnabled, pullHiveMindLessons, pullHiveMindPresets, registerHiveMindAgent, startHiveMindBackgroundSync } from "./hivemind.js";
 import { appendDecision } from "./decision-log.js";
 
 import { REPO_ROOT, repoPath } from "./repo-root.js";
@@ -51,9 +51,6 @@ if (isMain) {
   }
   log("startup", `Mode: ${process.env.DRY_RUN === "true" ? "DRY RUN" : "LIVE"}`);
   log("startup", `Model: ${process.env.LLM_MODEL || "hermes-3-405b"}`);
-  ensureAgentId();
-  bootstrapHiveMind().catch((error) => log("hivemind_warn", `Bootstrap failed: ${error.message}`));
-  startHiveMindBackgroundSync();
 }
 
 const TP_PCT = config.management.takeProfitPct;
@@ -121,7 +118,7 @@ function sanitizeUntrustedPromptText(text, maxLen = 500) {
 }
 
 function shouldUsePnlRecheck() {
-  return !config.api.lpAgentRelayEnabled;
+  return true;
 }
 
 function schedulePeakConfirmation(positionAddress) {
@@ -205,6 +202,63 @@ function stopCronJobs() {
   _cronTasks = [];
 }
 
+/**
+ * Auto-Sweep: swap excess SOL (> capitalSol) → USDC when no open positions.
+ * Uses data already fetched by management cycle — zero extra RPC calls.
+ *
+ * @param {number} walletSol - Current wallet SOL balance (preMgmtSol from management)
+ * @param {Array} livePositions - On-chain positions from getMyPositions()
+ */
+async function runAutoSweepSolToUsdc(walletSol, livePositions) {
+  if (!config.management.autoSweepSolToUsdc) return;
+
+  const SWEEP_STATE_PATH = repoPath("autoSweepSolToUsdc-state.json");
+  let sweepState = {};
+  try { sweepState = JSON.parse(fs.readFileSync(SWEEP_STATE_PATH, "utf8")); } catch {}
+
+  // Today in WIB (UTC+7)
+  const now = new Date();
+  const wibMs = now.getTime() + 7 * 60 * 60 * 1000;
+  const todayWIB = new Date(wibMs).toISOString().slice(0, 10);
+
+  // Already swept today → no RPC needed
+  if (sweepState.lastSweepDate === todayWIB) return;
+
+  const capitalSol = config.management.capitalSol ?? 15;
+
+  // Check open positions from management cycle data (already fetched, zero extra RPC)
+  const openCount = (livePositions || []).filter((p) => !p.closed).length;
+  if (openCount > 0) {
+    log("auto-sweep", `Waiting — ${openCount} position(s) still open`);
+    return;
+  }
+
+  // Wallet balance check (already fetched by management cycle)
+  if (!walletSol || walletSol <= capitalSol + 0.005) return;
+
+  const excessSol = parseFloat((walletSol - capitalSol).toFixed(4));
+  if (excessSol < 0.01) return;
+
+  log("auto-sweep", `Swapping ${excessSol} SOL → USDC ...`);
+  const result = await swapToken({ input_mint: "SOL", output_mint: config.tokens.USDC, amount: excessSol });
+  if (!result.success) { log("sweep_error", `Swap failed: ${result.error}`); return; }
+
+  sweepState.lastSweepDate = todayWIB;
+  sweepState.lastSweepAt = new Date().toISOString();
+  sweepState.lastSweepAmountSol = excessSol;
+  sweepState.lastSweepAmountUsdc = result.amount_out ?? 0;
+  sweepState.lastSweepTx = result.tx;
+  fs.writeFileSync(SWEEP_STATE_PATH, JSON.stringify(sweepState, null, 2) + "\n");
+
+  log("auto-sweep", `SUCCESS! ${excessSol} SOL → ${result.amount_out ?? "?"} USDC | Tx: ${result.tx}`);
+
+  // Telegram notification
+  try {
+    const msg = `💰 Auto-Sweep\n${"─".repeat(24)}\n${excessSol} SOL → ${result.amount_out ?? "?"} USDC\nTx: \`${result.tx}\``;
+    sendMessage(msg).catch(() => {});
+  } catch { /* best effort */ }
+}
+
 export async function runManagementCycle({ silent = false } = {}) {
   if (_managementBusy) return null;
   _managementBusy = true;
@@ -217,7 +271,7 @@ export async function runManagementCycle({ silent = false } = {}) {
 
   try {
     if (!silent && telegramEnabled()) {
-      liveMessage = await createLiveMessage("🔄 Management Cycle", "Evaluating positions...");
+      liveMessage = await createLiveMessage("📊 Management Cycle", "Evaluating positions...");
     }
     // Snapshot SOL before position sync — detect delta from auto-closed positions
     let preMgmtSol = 0;
@@ -251,6 +305,14 @@ export async function runManagementCycle({ silent = false } = {}) {
       }
     }
     // ── End SOL delta check ──────────────────────────────────────
+
+    // ── Auto-Sweep SOL → USDC ──────────────────────────────────
+    try {
+      await runAutoSweepSolToUsdc(preMgmtSol, positions);
+    } catch (e) {
+      log("cron_error", `Auto-sweep error: ${e.message}`);
+    }
+    // ── End auto-sweep ─────────────────────────────────────────
 
     if (positions.length === 0) {
       log("cron", "No open positions — triggering screening cycle");
@@ -320,18 +382,23 @@ export async function runManagementCycle({ silent = false } = {}) {
     const totalValue = positionData.reduce((s, p) => s + (p.total_value_usd ?? 0), 0);
     const totalUnclaimed = positionData.reduce((s, p) => s + (p.unclaimed_fees_usd ?? 0), 0);
 
-    const reportLines = positionData.map((p) => {
+    const reportLines = positionData.map((p, i) => {
       const act = actionMap.get(p.position);
-      const inRange = p.in_range ? "🟢 IN" : `🔴 OOR ${p.minutes_out_of_range ?? 0}m`;
-      const val = config.management.solMode ? `◎${p.total_value_usd ?? "?"}` : `$${p.total_value_usd ?? "?"}`;
-      const unclaimed = config.management.solMode ? `◎${p.unclaimed_fees_usd ?? "?"}` : `$${p.unclaimed_fees_usd ?? "?"}`;
-      const statusLabel = act.action === "INSTRUCTION" ? "HOLD (instruction)" : act.action;
-      let line = `**${p.pair}** | Age: ${p.age_minutes ?? "?"}m | Val: ${val} | Unclaimed: ${unclaimed} | PnL: ${p.pnl_pct ?? "?"}% | Yield: ${p.fee_per_tvl_24h ?? "?"}% | ${inRange} | ${statusLabel}`;
-      if (p.instruction) line += `\nNote: "${p.instruction}"`;
-      if (act.action === "CLOSE" && act.rule === "exit") line += `\n⚡ Trailing TP: ${act.reason}`;
-      if (act.action === "CLOSE" && act.rule && act.rule !== "exit") line += `\nRule ${act.rule}: ${act.reason}`;
-      if (act.action === "CLAIM") line += `\n→ Claiming fees`;
-      return line;
+      const rangeStatus = p.in_range ? "🟢 In Range" : `🔴 OOR ${p.minutes_out_of_range ?? 0}m`;
+      const sym = config.management.solMode ? "◎" : "$";
+      const pnlSign = (p.pnl_pct ?? 0) >= 0 ? "+" : "";
+      const icon = act.action === "STAY" ? "✅" : act.action === "CLOSE" ? "🔒" : act.action === "CLAIM" ? "💎" : "⚡";
+      const label = act.action === "INSTRUCTION" ? "HOLD (instruction)" : act.action;
+      const lines = [
+        `${icon} #${i + 1} ${p.pair}  →  ${label}`,
+        `   Val: ${sym}${p.total_value_usd ?? "?"}  |  PnL: ${pnlSign}${p.pnl_pct ?? "?"}%  |  Yield: ${p.fee_per_tvl_24h ?? "?"}%`,
+        `   Age: ${p.age_minutes ?? "?"}m  |  Unclaimed: ${sym}${p.unclaimed_fees_usd ?? "?"}  |  ${rangeStatus}`,
+      ];
+      if (p.instruction) lines.push(`   📝 "${p.instruction}"`);
+      if (act.action === "CLOSE" && act.rule === "exit") lines.push(`   ⚡ Trailing TP: ${act.reason}`);
+      if (act.action === "CLOSE" && act.rule && act.rule !== "exit") lines.push(`   📋 Rule ${act.rule}: ${act.reason}`);
+      if (act.action === "CLAIM") lines.push(`   💎 → Claiming fees`);
+      return lines.join("\n");
     });
 
     const needsAction = [...actionMap.values()].filter(a => a.action !== "STAY");
@@ -340,8 +407,7 @@ export async function runManagementCycle({ silent = false } = {}) {
       : "no action";
 
     const cur = config.management.solMode ? "◎" : "$";
-    mgmtReport = reportLines.join("\n\n") +
-      `\n\nSummary: 💼 ${positions.length} positions | ${cur}${totalValue.toFixed(4)} | fees: ${cur}${totalUnclaimed.toFixed(4)} | ${actionSummary}`;
+    mgmtReport = `${"—".repeat(20)}\n${reportLines.join("\n\n")}\n${"—".repeat(20)}\n\n💼 ${positions.length} position(s)  |  ${cur}${totalValue.toFixed(2)}  |  fees: ${cur}${totalUnclaimed.toFixed(2)}  |  ${actionSummary}`;
 
     // ── Call LLM only if action needed ──────────────────────────────
     const actionPositions = positionData.filter(p => {
@@ -403,7 +469,7 @@ After executing, write a brief one-line result per position.
     if (!silent && telegramEnabled()) {
       if (mgmtReport) {
         if (liveMessage) await liveMessage.finalize(stripThink(mgmtReport)).catch(() => {});
-        else sendMessage(`🔄 Management Cycle\n\n${stripThink(mgmtReport)}`).catch(() => { });
+        else sendMessage(`📊 Management Cycle\n\n${stripThink(mgmtReport)}`).catch(() => { });
       }
       for (const p of positions) {
         if (!p.in_range && p.minutes_out_of_range >= config.management.outOfRangeWaitMinutes) {
@@ -580,10 +646,10 @@ export async function runScreeningCycle({ silent = false } = {}) {
       const funnelBlock = buildGmgnFunnelReport(gmgnStageCounts, gmgnAllFiltered, { fromStage: 2 });
       const thresholds = `Thresholds: tvl>$${config.screening.minTvl} | vol>$${config.screening.minVolume} | organic>${config.screening.minOrganic}% | holders>${config.screening.minHolders} | fee/tvl>${config.screening.minFeeActiveTvlRatio}%`;
       screenReport = funnelBlock
-        ? `No candidates available.\n\n${funnelBlock}`
+        ? `⛔ No Deploy: none — all filtered\n\n${funnelBlock}`
         : combinedExamples
-          ? `No candidates available.\nFiltered examples:\n${combinedExamples}`
-          : `No candidates available (all filtered).\n${thresholds}`;
+          ? `⛔ No Deploy: none — all filtered\n\nFiltered:\n${combinedExamples}`
+          : `⛔ No Deploy: none — all filtered\n\n${thresholds}`;
       appendDecision({
         type: "no_deploy",
         actor: "SCREENER",
@@ -605,19 +671,14 @@ export async function runScreeningCycle({ silent = false } = {}) {
         const candidateName = passing[0].pool?.name || "unknown";
         const funnelBlock = buildGmgnFunnelReport(gmgnStageCounts, gmgnAllFiltered, { fromStage: 2 });
         screenReport = [
-          "⛔ NO DEPLOY",
+          `⛔ No Deploy: ${candidateName}`,
           "",
-          "Cycle finished with no valid entry.",
-          "",
-          "BEST LOOKING CANDIDATE",
-          candidateName,
-          "",
-          "WHY SKIPPED",
+          "Why skipped:",
           `Only one candidate survived filtering, but it was not worth deploying: ${skipReason}.`,
           "",
-          "REJECTED",
-          `- ${candidateName}: ${skipReason}`,
-          funnelBlock ? `\n─────────────\n${funnelBlock}` : null,
+          "Rejected:",
+          `• ${candidateName}: ${skipReason}`,
+          funnelBlock ? `\n${funnelBlock}` : null,
         ].filter(Boolean).join("\n");
         appendDecision({
           type: "no_deploy",
@@ -718,56 +779,37 @@ STEPS:
    pass deploy_position.volatility = the candidate volatility value.
    bins_above = 0. Single-side SOL only: set amount_y, keep amount_x = 0.
    ${isUsdcMode ? `amount_y: use ~${deployAmount.toFixed(3)} SOL as a rough estimate (the system will swap the full USDC budget and override the actual amount at execution).` : ""}
-4. Report in this exact format (no tables, no extra sections):
-   🚀 DEPLOYED
-
-   <pool name>
+4. Report in this format (no tables):
+   🚀 Deployed: <pool name>
    <pool address>
 
-   ◎ <deploy amount> SOL | <strategy> | bin <active_bin>
-   Range: <minPrice> → <maxPrice>
-   Range cover: <downside %> downside | <upside %> upside | <total width %> total
+   ◎ <amount> SOL  |  <strategy>  |  bin <active_bin>
+   📐 Range: <min> → <max>
+   📊 Cover: <down>% down  |  <up>% up  |  <total>% width
 
-   IMPORTANT:
-   - Do NOT calculate the range percentages yourself.
-   - Use the actual deploy_position tool result:
-     range_coverage.downside_pct
-     range_coverage.upside_pct
-     range_coverage.width_pct
+   Market
+   💰 Fee/TVL: <x>%  |  📈 Vol: $<x>  |  📦 TVL: $<x>
+   🌊 Volatility: <x>  |  👥 Organic: <x>%  |  🎂 Age: <x>h  |  💵 Mcap: $<x>
 
-   MARKET
-   Fee/TVL: <x>%
-   Volume: $<x>
-   TVL: $<x>
-   Volatility: <x>
-   Organic: <x>
-   Mcap: $<x>
-   Age: <x>h
+   Audit
+   🏆 Top10: <x>%  |  🤖 Bots: <x>%  |  💸 Fees: <x> SOL
+   👛 Smart: <names or none>
 
-   AUDIT
-   Top10: <x>%
-   Bots: <x>%
-   Fees paid: <x> SOL
-   Smart wallets: <names or none>
+   Why
+   <2-4 concise sentences>
 
-   WHY THIS WON
-   <2-4 concise sentences on why this pool won, key risks, and why it still beat the alternatives>
-5. If no pool qualifies, report in this exact format instead:
-   ⛔ NO DEPLOY
+5. If nothing qualifies:
+   ⛔ No Deploy: <pool name>
+   <pool address>
 
-   Cycle finished with no valid entry.
+   Why skipped:
+   <2-4 concise sentences>
 
-   BEST LOOKING CANDIDATE
-   <name or none>
-
-   WHY SKIPPED
-   <2-4 concise sentences explaining why nothing was good enough>
-
-   REJECTED
-   <short flat list of top candidate names and why they were skipped>
+   Rejected:
+   • <name> — <reason>
 IMPORTANT:
 - Keep the whole report compact and highly scannable for Telegram.
-      `, config.llm.maxSteps, [], "SCREENER", config.llm.screeningModel, 2048, {
+      `, config.llm.maxSteps, [], "SCREENER", config.llm.screeningModel, config.llm.maxTokens, {
         onToolStart: async ({ name }) => {
           if (name === "deploy_position") deployAttempted = true;
           await liveMessage?.toolStart(name);
@@ -1119,7 +1161,6 @@ function describeLatestCandidates(limit = 5) {
 }
 
 function formatWalletStatus(wallet, positions) {
-  const hive = isHiveMindEnabled() ? "on" : "off";
   const lines = [
     `Wallet: ${wallet.sol} SOL ($${wallet.sol_usd})`,
     `SOL price: $${wallet.sol_price}`,
@@ -1135,7 +1176,6 @@ function formatWalletStatus(wallet, positions) {
     lines.push(`Next deploy amount: ${deployAmount} SOL`);
   }
   lines.push(`Dry run: ${process.env.DRY_RUN === "true" ? "yes" : "no"}`);
-  lines.push(`HiveMind: ${hive}`);
   return lines.join("\n");
 }
 
@@ -1157,7 +1197,6 @@ function formatConfigSnapshot() {
     `Screening: ${config.screening.category} / ${config.screening.timeframe} | TVL ${config.screening.minTvl}-${config.screening.maxTvl}`,
     `GMGN interval: ${config.gmgn.interval} | OrderBy: ${config.gmgn.orderBy} | Dir: ${config.gmgn.direction}`,
     `Intervals: manage ${config.schedule.managementIntervalMin}m | screen ${config.schedule.screeningIntervalMin}m`,
-    `HiveMind: ${isHiveMindEnabled() ? "enabled" : "disabled"}${config.hiveMind.agentId ? ` | ${config.hiveMind.agentId}` : ""}`,
   ].join("\n");
 }
 
@@ -1176,7 +1215,6 @@ function parseConfigValue(raw) {
 function settingValue(key) {
   const values = {
     solMode: config.management.solMode,
-    lpAgentRelayEnabled: config.api.lpAgentRelayEnabled,
     chartIndicatorsEnabled: config.indicators.enabled,
     trailingTakeProfit: config.management.trailingTakeProfit,
     useDiscordSignals: config.screening.useDiscordSignals,
@@ -1263,7 +1301,7 @@ function renderSettingsMenu(page = "main") {
   const summary = [
     title,
     "",
-    `Mode: ${config.management.solMode ? "SOL" : "USD"} | Relay: ${config.api.lpAgentRelayEnabled ? "on" : "off"}`,
+    `Mode: ${config.management.solMode ? "SOL" : "USD"}`,
     `Screening: ${config.screening.source} | GMGN KOL ${config.gmgn.requireKol ? "required" : "preferred"}`,
     `Strategy: ${config.strategy.strategy} | deploy ${config.management.deployAmountSol} SOL | max pos ${config.risk.maxPositions}`,
     `TP/SL: ${config.management.takeProfitPct}% / ${config.management.stopLossPct}% | trailing ${config.management.trailingTakeProfit ? "on" : "off"}`,
@@ -1524,7 +1562,7 @@ function formatHelpText() {
     "",
     "/help — show commands",
     "/status — wallet + positions snapshot",
-    "/wallet — wallet, deploy amount, HiveMind status",
+    "/wallet — wallet + deploy amount",
     "/positions — list open positions",
     "/pool <n> — detailed info for one open position",
     "/close <n> — close one position by index",
@@ -1536,9 +1574,8 @@ function formatHelpText() {
     "/screen — refresh deterministic candidate list",
     "/candidates — show latest cached candidates",
     "/deploy <n> — deploy candidate by cached index",
+    "/sweepsol — auto-sweep SOL → USDC history & config",
     "/briefing — morning briefing",
-    "/hive — HiveMind sync status",
-    "/hive pull — manual HiveMind pull now",
     "/pause — stop cron cycles",
     "/resume — start cron cycles again",
     "/stop — shut down agent",
@@ -1722,6 +1759,28 @@ async function telegramHandler(msg) {
     return;
   }
 
+  if (text === "/sweepsol") {
+    try {
+      const sweepState = JSON.parse(fs.readFileSync(repoPath("autoSweepSolToUsdc-state.json"), "utf8"));
+      const enabled = config.management.autoSweepSolToUsdc ? "✅ Enabled" : "❌ Disabled";
+      const capital = config.management.capitalSol ?? 15;
+      let msg = `💰 **Auto-Sweep SOL → USDC**\n`;
+      msg += `Status: ${enabled} | Capital: ${capital} SOL\n`;
+      if (sweepState.lastSweepDate) {
+        msg += `\n**Last sweep:** ${sweepState.lastSweepDate}\n`;
+        msg += `Time: ${new Date(sweepState.lastSweepAt).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}\n`;
+        msg += `Amount: \`${sweepState.lastSweepAmountSol} SOL\` → \`${sweepState.lastSweepAmountUsdc} USDC\`\n`;
+        msg += `Tx: \`${sweepState.lastSweepTx?.slice(0, 20)}...\`\n`;
+      } else {
+        msg += `\nNo sweep history yet.\n`;
+      }
+      await sendMessage(msg);
+    } catch (e) {
+      await sendMessage(`Sweep status not available: ${e.message}`).catch(() => {});
+    }
+    return;
+  }
+
   if (text === "/positions") {
     try {
       const { positions, total_positions } = await getMyPositions({ force: true });
@@ -1888,37 +1947,6 @@ async function telegramHandler(msg) {
       await sendMessage("▶️ Autonomous cycles resumed.").catch(() => {});
     } else {
       await sendMessage("Autonomous cycles are already running.").catch(() => {});
-    }
-    return;
-  }
-
-  if (text === "/hive" || text === "/hive pull") {
-    try {
-      const enabled = isHiveMindEnabled();
-      const agentId = ensureAgentId();
-      if (!enabled) {
-        await sendMessage(`HiveMind: disabled\nAgent ID: ${agentId}\nSet hiveMindApiKey to connect.`).catch(() => {});
-        return;
-      }
-      const isManualPull = text === "/hive pull";
-      const pullMode = getHiveMindPullMode();
-      const [registerResult, lessons, presets] = await Promise.all([
-        registerHiveMindAgent({ reason: isManualPull ? "telegram_pull" : "telegram_status" }),
-        (pullMode === "auto" || isManualPull) ? pullHiveMindLessons(12) : Promise.resolve(null),
-        (pullMode === "auto" || isManualPull) ? pullHiveMindPresets() : Promise.resolve(null),
-      ]);
-      await sendMessage([
-        "HiveMind: enabled",
-        `Agent ID: ${agentId}`,
-        `URL: ${config.hiveMind.url}`,
-        `Pull mode: ${pullMode}`,
-        `Register: ${registerResult ? "ok" : "warn"}`,
-        `Shared lessons: ${Array.isArray(lessons) ? lessons.length : (pullMode === "manual" ? "manual" : 0)}`,
-        `Presets: ${Array.isArray(presets) ? presets.length : (pullMode === "manual" ? "manual" : 0)}`,
-        isManualPull ? "Manual pull: completed" : null,
-      ].join("\n")).catch(() => {});
-    } catch (e) {
-      await sendMessage(`HiveMind error: ${e.message}`).catch(() => {});
     }
     return;
   }

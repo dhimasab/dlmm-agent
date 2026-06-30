@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 /**
- * Meridian PnL Recap — Fabric.trade Style
+ * DLMM Agent PnL Recap
  * Usage: node recap.js morning   → Recap yesterday (00:00-23:59 UTC)
  *        node recap.js evening   → Recap today (00:00-now UTC)
  */
 import fs from 'fs';
 import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const STATE_FILE = '/home/ubuntu/meridianagent/state.json';
-const LESSONS_FILE = '/home/ubuntu/meridianagent/lessons.json';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const STATE_FILE = path.join(__dirname, 'state.json');
+const LESSONS_FILE = path.join(__dirname, 'lessons.json');
 
 function loadJSON(path) {
   try { return JSON.parse(fs.readFileSync(path, 'utf8')); }
@@ -21,7 +24,7 @@ function getCurrentPositions() {
     let stdout = '';
     let stderr = '';
     const proc = spawn('node', ['cli.js', 'positions'], {
-      cwd: '/home/ubuntu/meridianagent',
+      cwd: __dirname,
       timeout: 20000,
       stdio: ['ignore', 'pipe', 'pipe']
     });

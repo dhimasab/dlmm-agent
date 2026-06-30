@@ -46,7 +46,6 @@ import { notifyDeploy, notifyClose, notifySwap, notifySwapError } from "../teleg
 
 const SENSITIVE_CONFIG_KEYS = new Set([
   "gmgnApiKey",
-  "hiveMindApiKey",
   "publicApiKey",
 ]);
 
@@ -378,14 +377,7 @@ const toolMap = {
       minBinsBelow: ["strategy", "minBinsBelow"],
       maxBinsBelow: ["strategy", "maxBinsBelow"],
       defaultBinsBelow: ["strategy", "defaultBinsBelow"],
-      // hivemind
-      hiveMindUrl: ["hiveMind", "url"],
-      hiveMindApiKey: ["hiveMind", "apiKey"],
-      agentId: ["hiveMind", "agentId"],
-      hiveMindPullMode: ["hiveMind", "pullMode"],
-      // meridian api / relay
       publicApiKey: ["api", "publicApiKey"],
-      agentMeridianApiUrl: ["api", "url"],
       lpAgentRelayEnabled: ["api", "lpAgentRelayEnabled"],
       // pnl fetcher / poller
       pnlSource: ["pnl", "source"],

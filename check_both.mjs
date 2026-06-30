@@ -1,5 +1,5 @@
-import { computePositions } from '/root/experimental-meridian/tools/pnl.js';
-import { getMyPositions } from '/root/experimental-meridian/tools/dlmm.js';
+import { computePositions } from '/Users/dhimas/Documents/COURSE/Belajar Coding/Project Pribadi/DLMMAgent/tools/pnl.js';
+import { getMyPositions } from '/Users/dhimas/Documents/COURSE/Belajar Coding/Project Pribadi/DLMMAgent/tools/dlmm.js';
 
 console.log('=== pnl.js path ===');
 const r1 = await computePositions('FHogGW8cfNy24c5S9Jvy4SrvBymP7Kqbmqp9M2RvvddQ');

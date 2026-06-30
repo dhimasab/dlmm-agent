@@ -411,7 +411,7 @@ async function poll(onMessage) {
 const BOT_COMMANDS = [
   { command: "help",       description: "Show commands" },
   { command: "status",     description: "Wallet + positions snapshot" },
-  { command: "wallet",     description: "Wallet, deploy amount, HiveMind status" },
+  { command: "wallet",     description: "Wallet + deploy amount" },
   { command: "positions",  description: "List open positions" },
   { command: "pool",       description: "Detailed info for one open position" },
   { command: "close",      description: "Close one position by index" },
@@ -423,8 +423,8 @@ const BOT_COMMANDS = [
   { command: "screen",     description: "Refresh deterministic candidate list" },
   { command: "candidates", description: "Show latest cached candidates" },
   { command: "deploy",     description: "Deploy candidate by cached index" },
+  { command: "sweepsol",   description: "Auto-sweep SOL → USDC history & config" },
   { command: "briefing",   description: "Morning briefing" },
-  { command: "hive",       description: "HiveMind sync status" },
   { command: "pause",      description: "Stop cron cycles" },
   { command: "resume",     description: "Start cron cycles again" },
   { command: "stop",       description: "Shut down agent" },
@@ -473,7 +473,8 @@ export async function notifyDeploy({ pair, amountSol, position, tx, priceRange, 
     ? `Bin step: ${binStep ?? "?"}  |  Base fee: ${baseFee != null ? baseFee + "%" : "?"}\n`
     : "";
   await sendHTML(
-    `✅ <b>Deployed</b> ${pair}\n` +
+    `🚀 <b>Deployed</b>\n` +
+    `Pair: ${pair}\n` +
     `Amount: ${amountSol} SOL\n` +
     priceStr +
     coverageStr +
@@ -487,17 +488,19 @@ export async function notifyClose({ pair, pnlUsd, pnlPct, reason }) {
   if (hasActiveLiveMessage()) return;
   const sign = pnlUsd >= 0 ? "+" : "";
   await sendHTML(
-    `🔒 <b>Closed</b> ${pair}\n` +
+    `🔒 <b>Closed</b>\n` +
+    `Pair: ${pair}\n` +
     `PnL: ${sign}$${(pnlUsd ?? 0).toFixed(2)} (${sign}${(pnlPct ?? 0).toFixed(2)}%)` +
-    (reason ? `\nAlasan: ${reason}` : "")
+    (reason ? `\nReason: ${reason}` : "")
   );
 }
 
 export async function notifySwap({ inputSymbol, outputSymbol, amountIn, amountOut, tx }) {
   if (hasActiveLiveMessage()) return;
   await sendHTML(
-    `🔄 <b>Swapped</b> ${inputSymbol} → ${outputSymbol}\n` +
-    `In: ${amountIn ?? "?"} | Out: ${amountOut ?? "?"}\n` +
+    `🔄 <b>Swapped</b>\n` +
+    `${inputSymbol} → ${outputSymbol}\n` +
+    `In: ${amountIn ?? "?"}  |  Out: ${amountOut ?? "?"}\n` +
     `Tx: <code>${tx?.slice(0, 16)}...</code>`
   );
 }
@@ -505,20 +508,21 @@ export async function notifySwap({ inputSymbol, outputSymbol, amountIn, amountOu
 export async function notifyOutOfRange({ pair, minutesOOR }) {
   if (hasActiveLiveMessage()) return;
   await sendHTML(
-    `⚠️ <b>Out of Range</b> ${pair}\n` +
-    `Been OOR for ${minutesOOR} minutes`
+    `⚠️ <b>Out of Range</b>\n` +
+    `Pair: ${pair}\n` +
+    `OOR since: ${minutesOOR} minutes ago`
   );
 }
 
 export async function notifySwapError({ pair, tokenMint, remainingUsd, reason, poolAddress }) {
   if (hasActiveLiveMessage()) return;
   await sendHTML(
-    `🚨 <b>Auto-Swap FAILED</b>\n` +
+    `🚨 <b>Swap Failed</b>\n` +
     `Pair: ${pair || tokenMint?.slice(0, 8) || "?"}\n` +
-    `Token masih di wallet: <b>$${remainingUsd?.toFixed(2) ?? "?"}</b>\n` +
-    `Alasan: ${reason || "Semua metode gagal"}\n` +
+    `Token stuck in wallet: <b>$${remainingUsd?.toFixed(2) ?? "?"}</b>\n` +
+    `Reason: ${reason || "All methods failed"}\n` +
     `${poolAddress ? `Pool: <code>${poolAddress.slice(0, 12)}...</code>` : ""}\n` +
-    `Coba swap manual atau hubungi IT Support.`
+    `Manual swap required.`
   );
 }
 

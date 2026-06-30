@@ -1,4 +1,4 @@
-# Meridian — CLAUDE.md
+# DLMM Agent — CLAUDE.md
 
 Autonomous DLMM liquidity provider agent for Meteora pools on Solana.
 
@@ -17,7 +17,7 @@ pool-memory.js      Per-pool deploy history + snapshots (pool-memory.json)
 strategy-library.js Saved LP strategies (strategy-library.json)
 briefing.js         Daily Telegram briefing (HTML)
 telegram.js         Telegram bot: polling, notifications (deploy/close/swap/OOR)
-hive-mind.js        Optional collective intelligence server sync
+hivemind.js        Optional collective intelligence server sync
 smart-wallets.js    KOL/alpha wallet tracker (smart-wallets.json)
 token-blacklist.js  Permanent token blacklist (token-blacklist.json)
 logger.js           Daily-rotating log files + action audit trail
@@ -93,6 +93,8 @@ Sets defined in `agent.js:6-7`. If you add a tool, also add it to the relevant s
 | managementIntervalMin | schedule | 10 |
 | screeningIntervalMin | schedule | 30 |
 | managementModel / screeningModel / generalModel | llm | openrouter/healer-alpha |
+| autoSweepSolToUsdc | management | false |
+| capitalSol | management | 15 |
 
 **USDC mode deploy flow** (`tools/executor.js:650-674`):
 1. Snapshot pre-existing SOL (reserve)
@@ -112,6 +114,36 @@ Sets defined in `agent.js:6-7`. If you add a tool, also add it to the relevant s
 2. **Monitor**: management cron → `getMyPositions()` → `getPositionPnl()` → OOR detection → pool-memory snapshots
 3. **Close**: `close_position` → `recordPerformance()` in lessons.js → auto-swap base token to SOL → Telegram notify
 4. **Learn**: `evolveThresholds()` runs on performance data → updates config.screening → persists to user-config.json
+
+---
+
+## Auto-Sweep SOL → USDC
+
+Runs inside **management cycle** — no external cron. Kalo `dlmm-agent.service` stop, sweep ikut stop.
+
+**Config keys** (`user-config.json`):
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `autoSweepSolToUsdc` | bool | false | Toggle on/off |
+| `capitalSol` | number | 15 | SOL yg ditahan di wallet |
+
+**Logic** (`index.js:runAutoSweepSolToUsdc()`):
+1. Cek `autoSweepSolToUsdc` — kalo false, skip
+2. Cek `autoSweepSolToUsdc-state.json` — kalo `lastSweepDate === hari ini (WIB)`, skip (udah diswap)
+3. Cek open positions dari management cycle data — kalo masih ada, skip
+4. Cek balance SOL — kalo `≤ capitalSol`, skip
+5. Swap `excess = balance - capitalSol` SOL → USDC via Jupiter
+6. Update `autoSweepSolToUsdc-state.json` — tandai hari ini selesai
+
+**Zero extra RPC** — semua data (balance, positions) udah di-fetch management cycle.
+
+**File state:** `autoSweepSolToUsdc-state.json`
+| Field | Description |
+|---|---|
+| `lastSweepDate` | YYYY-MM-DD terakhir sweep (WIB) |
+| `lastSweepAmountSol` | Jumlah SOL di-swap |
+| `lastSweepAmountUsdc` | USDC diterima |
+| `lastSweepTx` | Tx signature |
 
 ---
 
@@ -210,7 +242,7 @@ const actualBaseFee = baseFactor > 0
 
 ---
 
-## Hive Mind (hive-mind.js)
+## Hive Mind (hivemind.js)
 
 Optional feature. Enabled by setting `HIVE_MIND_URL` and `HIVE_MIND_API_KEY` in `.env`.
 Syncs lessons/deploys to a shared server, queries consensus patterns.
@@ -229,6 +261,7 @@ Not required for normal operation.
 | `TELEGRAM_CHAT_ID` | No | Telegram chat target |
 | `LLM_BASE_URL` | No | Override for local LLM (e.g. LM Studio) |
 | `LLM_MODEL` | No | Override default model |
+| `JUPITER_API_KEY` | No | Jupiter API key (rate limit). Kosongin aja kalo gak punya, tetap jalan |
 | `DRY_RUN` | No | Skip all on-chain transactions |
 | `HIVE_MIND_URL` | No | Collective intelligence server |
 | `HIVE_MIND_API_KEY` | No | Hive mind auth token |

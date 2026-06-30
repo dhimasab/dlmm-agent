@@ -1,10 +1,9 @@
 import { config } from "../config.js";
 import { isBlacklisted } from "../token-blacklist.js";
 import { isDevBlocked, getBlockedDevs } from "../dev-blocklist.js";
-import { log } from "../logger.js";
 import { isBaseMintOnCooldown, isPoolOnCooldown } from "../pool-memory.js";
 import { confirmIndicatorPreset } from "./chart-indicators.js";
-import { getAgentMeridianBase, getAgentMeridianHeaders } from "./agent-meridian.js";
+import { log } from "../logger.js";
 
 const DATAPI_JUP = "https://datapi.jup.ag/v1";
 
@@ -101,12 +100,8 @@ function getRawPoolScreeningRejectReason(pool, s) {
 }
 
 async function fetchDiscordSignalCandidates() {
-  const res = await fetch(`${getAgentMeridianBase()}/signals/discord/candidates`, {
-    headers: getAgentMeridianHeaders(),
-  });
-  if (!res.ok) throw new Error(`discord signal candidates ${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data?.candidates) ? data.candidates : [];
+  // Agent Meridian backend removed — no Discord relay available
+  return [];
 }
 
 async function searchAssetsBySymbol(symbol) {
@@ -207,22 +202,14 @@ export async function discoverPools({
       : null,
   ].filter(Boolean).join("&&");
 
-  const useServerDiscovery = !!config.api.publicApiKey;
-  const url = useServerDiscovery
-    ? `${getAgentMeridianBase()}/discovery/pools?` +
-      `page_size=${page_size}` +
-      `&filter_by=${encodeURIComponent(filters)}` +
-      `&timeframe=${s.timeframe}` +
-      `&category=${s.category}`
-    : `${POOL_DISCOVERY_BASE}/pools?` +
+  // Always use local Meteora pool discovery (no server-side relay)
+  const url = `${POOL_DISCOVERY_BASE}/pools?` +
       `page_size=${page_size}` +
       `&filter_by=${encodeURIComponent(filters)}` +
       `&timeframe=${s.timeframe}` +
       `&category=${s.category}`;
 
-  const res = await fetch(url, {
-    headers: useServerDiscovery ? getAgentMeridianHeaders() : {},
-  });
+  const res = await fetch(url);
 
   if (!res.ok) {
     throw new Error(`Pool Discovery API error: ${res.status} ${res.statusText}`);
@@ -570,17 +557,13 @@ export async function getTopCandidates({ limit = 10 } = {}) {
  * Returns the full unfiltered API object (all fields, not condensed).
  */
 export async function getPoolDetail({ pool_address, timeframe = "5m" }) {
-  const useServerDiscovery = !!config.api.publicApiKey;
-  const url = useServerDiscovery
-    ? `${getAgentMeridianBase()}/discovery/pools/${pool_address}?timeframe=${encodeURIComponent(timeframe)}`
-    : `${POOL_DISCOVERY_BASE}/pools?` +
+  // Always use local Meteora pool discovery (no server-side relay)
+  const url = `${POOL_DISCOVERY_BASE}/pools?` +
       `page_size=1` +
       `&filter_by=${encodeURIComponent(`pool_address=${pool_address}`)}` +
       `&timeframe=${timeframe}`;
 
-  const res = await fetch(url, {
-    headers: useServerDiscovery ? getAgentMeridianHeaders() : {},
-  });
+  const res = await fetch(url);
 
   if (!res.ok) {
     throw new Error(`Pool detail API error: ${res.status} ${res.statusText}`);

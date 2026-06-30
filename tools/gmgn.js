@@ -600,7 +600,7 @@ export async function discoverGmgnPools({ limit = 10 } = {}) {
   stageCounts.s3 = s3.length;
   log("gmgn", `Stage3 pool: ${s2.length} → ${s3.length} pass`);
 
-  // ── Stage 4: Meridian chart indicators ────────────────────────────────────
+  // ── Stage 4: dlmm-agent chart indicators ────────────────────────────────────
   const s4 = [];
   if (g.indicatorFilter !== false) {
     for (const entry of s3) {

@@ -1,6 +1,6 @@
-# Dokumentasi Lengkap Meridian Agent: Workflow, Analisa, dan Filtering
+# Dokumentasi Lengkap DLMM Agent Agent: Workflow, Analisa, dan Filtering
 
-Dokumen ini menjelaskan secara sangat mendetail (A to Z) mengenai cara kerja Meridian Agent. Mulai dari cara menjalankan bot, proses *screening* koin, logika kecerdasan buatan (LLM), hingga eksekusi beli/jual (*Take Profit* & *Stop Loss*).
+Dokumen ini menjelaskan secara sangat mendetail (A to Z) mengenai cara kerja DLMM Agent Agent. Mulai dari cara menjalankan bot, proses *screening* koin, logika kecerdasan buatan (LLM), hingga eksekusi beli/jual (*Take Profit* & *Stop Loss*).
 
 ---
 
@@ -17,8 +17,8 @@ Sebelum menjalankan bot, pastikan konfigurasi dasar telah terpenuhi:
    Jika kamu hanya menjalankan dengan `npm start` atau `node index.js`, bot akan langsung mati apabila koneksi SSH / terminal terputus. Agar bot tetap hidup di *background* secara permanen, gunakan **PM2**:
    *   Instal dependensi sistem: `npm install`
    *   Instal PM2 secara global: `npm install -g pm2`
-   *   Jalankan bot dengan PM2: `pm2 start index.js --name "meridian-agent"`
-   *   *(Opsional)* Lihat aktivitas log bot secara real-time: `pm2 logs meridian-agent`
+   *   Jalankan bot dengan PM2: `pm2 start index.js --name "dlmm-agent-agent"`
+   *   *(Opsional)* Lihat aktivitas log bot secara real-time: `pm2 logs dlmm-agent-agent`
    *   *(Opsional)* Agar PM2 otomatis *restart* saat VPS di-*reboot*: `pm2 startup` lalu `pm2 save`
 
 ---
@@ -48,7 +48,7 @@ Sistem ini sangat menghindari koin *scam*, *rugpull*, dan *shitcoin*. Sebelum se
 *   **Global Fees Minimum**: Menolak koin yang dibayar *fee*-nya di bawah **30 SOL**. Koin dengan *fee* terlalu murah umumnya didominasi bot *wash trading* atau ter-*bundle*. *(Data dari Jupiter: `https://datapi.jup.ag`)*
 
 ### Lapis 2: Meteora Pool Discovery API (Filter Fundamental)
-**(Sumber Data: API Resmi Meteora - [`https://pool-discovery-api.datapi.meteora.ag/pools`](https://pool-discovery-api.datapi.meteora.ag/pools) atau Agent Meridian API)**
+**(Sumber Data: API Resmi Meteora - [`https://pool-discovery-api.datapi.meteora.ag/pools`](https://pool-discovery-api.datapi.meteora.ag/pools) atau Agent DLMM Agent API)**
 Pencarian *pool* pada *exchange* Meteora wajib memenuhi kriteria mutlak berikut:
 *   **Tipe Pool**: Wajib berjenis DLMM (*Dynamic Liquidity Market Maker*).
 *   **TVL (Total Value Locked)**: Rentang **$10,000 hingga $150,000**.
@@ -73,7 +73,7 @@ Pencarian *pool* pada *exchange* Meteora wajib memenuhi kriteria mutlak berikut:
 *   **ATH Proximity Filter (`athFilterPct`)**: Secara matematis menjauhkan bot dari pucuk/ATH. (Contoh: jika diset `-20`, bot hanya boleh masuk jika harga koin sedang jatuh minimal 20% dari nilai puncaknya). *(Didapat dari data Harga vs ATH OKX)*
 
 ### Lapis 5: Technical Chart Indicators (Jika `indicators.enabled` = true)
-**(Sumber Data: Agen Meridian Backend Charting API - [`https://api.agentmeridian.xyz`](https://api.agentmeridian.xyz))**
+**(Sumber Data: Agen DLMM Agent Backend Charting API - [`https://api.agentdlmm-agent.xyz`](https://api.agentdlmm-agent.xyz))**
 *   Apabila pengguna mengaktifkan indikator, sistem akan menarik data pergerakan *candlestick*.
 *   Bot akan menunda posisi *buy* sampai momentum terkonfirmasi secara hitungan teknikal (Misal: **RSI Oversold** menyentuh angka 30, atau terjadi *breakout* pada **Supertrend**).
 
@@ -115,7 +115,7 @@ Di `config.js`, fitur `darwinEnabled` membuat bot ini mampu berevolusi. Bot meng
 Sistem memiliki modul `telegram.js` yang tak henti-hentinya mengirim laporan ke Telegram-mu. Ia memberitahu ketika bot melakukan eksekusi *Buy*, saat meraup profit (*Claim Fees*), serta saat eksekusi posisi ditutup (TP/SL).
 
 ### C. HiveMind (Kecerdasan Kolektif API)
-Modul `hivemind.js` memungkinkan agenmu tidak merasa "sendirian". Ia tersinkronisasi ke server pusat (`api.agentmeridian.xyz`) untuk terus mengunduh daftar hitam (*blacklist*) penipu/developer nakal yang baru saja ditemukan oleh agen AI milik orang lain.
+Modul `hivemind.js` memungkinkan agenmu tidak merasa "sendirian". Ia tersinkronisasi ke server pusat (`api.agentdlmm-agent.xyz`) untuk terus mengunduh daftar hitam (*blacklist*) penipu/developer nakal yang baru saja ditemukan oleh agen AI milik orang lain.
 
 ### D. File Memory (Self-Debugging)
 Agar bot tidak hilang ingatan saat VPS direstart, semua jejak rekam dicatat secara lokal:

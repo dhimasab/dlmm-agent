@@ -8,8 +8,11 @@
  *   node recap-onchain.js             ← default: today
  */
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const STATE_FILE = '/home/ubuntu/meridianagent/state.json';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const STATE_FILE = path.join(__dirname, 'state.json');
 const WALLET = '4KEwHasqDmUzxj6QorqY9GFsC5txDuCnnZ495LQgwQus';
 
 function toWIB(d) { return new Date(d.getTime() + 7 * 60 * 60 * 1000); }

@@ -5,13 +5,12 @@ const DEFAULT_INTERVALS = ["5_MINUTE"];
 const DEFAULT_CANDLES = 298;
 
 function getApiBase() {
-  return String(config.api.url || "https://api.agentmeridian.xyz/api").replace(/\/+$/, "");
+  // Agent Meridian chart indicator API removed — feature unavailable
+  return ""; 
 }
 
 function getHeaders() {
-  const headers = {};
-  if (config.api.publicApiKey) headers["x-api-key"] = config.api.publicApiKey;
-  return headers;
+  return {};
 }
 
 function normalizeIntervals(intervals) {

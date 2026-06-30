@@ -1,4 +1,4 @@
-import { getMyPositions } from '/root/experimental-meridian/tools/dlmm.js';
+import { getMyPositions } from '/Users/dhimas/Documents/COURSE/Belajar Coding/Project Pribadi/DLMMAgent/tools/dlmm.js';
 
 const r = await getMyPositions({ force: true, silent: true });
 for (const p of r.positions || []) {

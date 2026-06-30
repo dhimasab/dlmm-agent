@@ -9,7 +9,9 @@ function load() {
     return { decisions: [] };
   }
   try {
-    return JSON.parse(fs.readFileSync(DECISION_LOG_FILE, "utf8"));
+    const data = JSON.parse(fs.readFileSync(DECISION_LOG_FILE, "utf8"));
+    if (!Array.isArray(data.decisions)) data.decisions = [];
+    return data;
   } catch (error) {
     log("decision_log_warn", `Invalid ${DECISION_LOG_FILE}: ${error.message}`);
     return { decisions: [] };
