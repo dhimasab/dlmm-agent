@@ -113,6 +113,9 @@ npm install
 
 ### 2. Setup & run with pm2
 ```bash
+# Install pm2 globally
+npm install -g pm2
+
 # Copy example configs
 cp .env.example .env
 cp user-config.json.example user-config.json
