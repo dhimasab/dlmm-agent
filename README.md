@@ -30,67 +30,6 @@ node index.js
 
 ---
 
-## Configuration
-
-### `.env`
-```env
-# ── LLM Provider ──────────────────────────────────────────
-LLM_BASE_URL=<your-llm-base-url>
-LLM_API_KEY=<your-llm-api-key>
-LLM_MODEL=<your-model>
-
-# ── Wallet ────────────────────────────────────────────────
-WALLET_PRIVATE_KEY=your_base58_private_key
-
-# ── Solana RPC ─────────────────────────────────────────────
-RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
-HELIUS_API_KEY=your_helius_key
-
-# ── Jupiter API (opsional, tanpa key juga jalan) ──────────
-JUPITER_API_KEY=
-
-# ── Deploy Settings (1 SOL wallet) ─────────────────────────
-DEPLOY_AMOUNT_SOL=0.05         # Per position
-MAX_DEPLOY_AMOUNT=0.3          # Max per cycle
-POSITION_SIZE_PCT=0.25         # 25% wallet
-GAS_RESERVE=0.2                # Gas buffer
-
-# ── Telegram (optional) ────────────────────────────────────
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_CHAT_ID=
-
-# ── Mode ───────────────────────────────────────────────────
-DRY_RUN=true                   # Set false for live
-LOG_LEVEL=info
-```
-
-### `user-config.json` (key settings)
-```json
-{
-  "deployAmountSol": 0.5,
-  "maxDeployAmount": 50,
-  "deployAmountUsdc": 100,
-  "maxDeployAmountUsdc": 500,
-  "maxPositions": 2,
-  "minSolToOpen": 0.1,
-  "positionSizePct": 0,
-  "positionSizePctUsdc": 0,
-  "gasReserve": 0.01,
-  "capitalSol": 1.4,
-  "autoSweepSolToUsdc": true,
-  "strategy": "spot",
-  "minBinsBelow": 35,
-  "maxBinsBelow": 69,
-  "managementIntervalMin": 3,
-  "screeningIntervalMin": 15,
-  "stopLossPct": -10,
-  "takeProfitPct": 8,
-  "outOfRangeWaitMinutes": 30
-}
-```
-
----
-
 ## Deploy to VPS
 
 ### 1. Install Node.js & clone
@@ -149,6 +88,67 @@ pm2 delete dlmm-agent         # Remove from pm2
 /briefing        # Morning briefing
 /status          # Wallet + positions
 /thresholds      # Settings
+```
+
+---
+
+## Configuration
+
+### `.env`
+```env
+# ── LLM Provider ──────────────────────────────────────────
+LLM_BASE_URL=<your-llm-base-url>
+LLM_API_KEY=<your-llm-api-key>
+LLM_MODEL=<your-model>
+
+# ── Wallet ────────────────────────────────────────────────
+WALLET_PRIVATE_KEY=your_base58_private_key
+
+# ── Solana RPC ─────────────────────────────────────────────
+RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+HELIUS_API_KEY=your_helius_key
+
+# ── Jupiter API (opsional, tanpa key juga jalan) ──────────
+JUPITER_API_KEY=
+
+# ── Deploy Settings (1 SOL wallet) ─────────────────────────
+DEPLOY_AMOUNT_SOL=0.05         # Per position
+MAX_DEPLOY_AMOUNT=0.3          # Max per cycle
+POSITION_SIZE_PCT=0.25         # 25% wallet
+GAS_RESERVE=0.2                # Gas buffer
+
+# ── Telegram (optional) ────────────────────────────────────
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+
+# ── Mode ───────────────────────────────────────────────────
+DRY_RUN=true                   # Set false for live
+LOG_LEVEL=info
+```
+
+### `user-config.json` (key settings)
+```json
+{
+  "deployAmountSol": 0.5,
+  "maxDeployAmount": 50,
+  "deployAmountUsdc": 100,
+  "maxDeployAmountUsdc": 500,
+  "maxPositions": 2,
+  "minSolToOpen": 0.1,
+  "positionSizePct": 0,
+  "positionSizePctUsdc": 0,
+  "gasReserve": 0.01,
+  "capitalSol": 1.4,
+  "autoSweepSolToUsdc": true,
+  "strategy": "spot",
+  "minBinsBelow": 35,
+  "maxBinsBelow": 69,
+  "managementIntervalMin": 3,
+  "screeningIntervalMin": 15,
+  "stopLossPct": -10,
+  "takeProfitPct": 8,
+  "outOfRangeWaitMinutes": 30
+}
 ```
 
 ---
