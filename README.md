@@ -25,9 +25,7 @@ node index.js
 
 ---
 
-## Configuration for 1 SOL Wallet
-
-**Conservative settings for low-capital testing:**
+## Configuration
 
 ### `.env`
 ```env
@@ -64,21 +62,27 @@ LOG_LEVEL=info
 ### `user-config.json` (key settings)
 ```json
 {
-  "deployAmountSol": 0.05,
-  "maxDeployAmount": 0.3,
+  "deployAmountSol": 0.5,
+  "maxDeployAmount": 50,
+  "deployAmountUsdc": 100,
+  "maxDeployAmountUsdc": 500,
   "maxPositions": 2,
-  "minSolToOpen": 0.15,
-  "positionSizePct": 0.25,
-  "gasReserve": 0.2
+  "minSolToOpen": 0.1,
+  "positionSizePct": 0,
+  "positionSizePctUsdc": 0,
+  "gasReserve": 0.01,
+  "capitalSol": 1.4,
+  "autoSweepSolToUsdc": true,
+  "strategy": "spot",
+  "minBinsBelow": 35,
+  "maxBinsBelow": 69,
+  "managementIntervalMin": 3,
+  "screeningIntervalMin": 15,
+  "stopLossPct": -10,
+  "takeProfitPct": 8,
+  "outOfRangeWaitMinutes": 30
 }
 ```
-
-**Wallet math:**
-- Total: 1 SOL
-- Gas reserve: 0.2 SOL (locked)
-- Deployable: 0.8 SOL
-- Per cycle: 2 positions × 0.05 = 0.1 SOL max
-- Buffer: 0.5 SOL remaining ✓
 
 ---
 
@@ -143,8 +147,8 @@ DLMM Agent runs a **ReAct agent loop** — each cycle the LLM reasons over live 
 
 | Agent | Interval | Role |
 |---|---|---|
-| **Screening** | Every 30 min | Pool screening → deploy |
-| **Management** | Every 10 min | Position evaluation → close/stay |
+| **Screening** | Every 15 min | Pool screening → deploy |
+| **Management** | Every 3 min | Position evaluation → close/stay |
 
 **Data sources:**
 - Meteora DLMM SDK (on-chain data)
