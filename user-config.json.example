@@ -3,6 +3,8 @@
   "dryRun": true,
   "quoteCurrency": "SOL",
   "solMode": false,
+  "autoSweepSolToUsdc": true,
+  "capitalSol": 1.4,
 
   "deployAmountSol": 0.5,
   "minSolToOpen": 0.1,
@@ -24,9 +26,6 @@
   "trailingTriggerPct": 3,
   "trailingDropPct": 1,
   "pnlSanityMaxDiffPct": 5,
-
-  "autoSweepSolToUsdc": true,
-  "capitalSol": 1.4,
 
   "strategy": "spot",
   "minBinsBelow": 35,
