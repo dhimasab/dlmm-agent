@@ -4,8 +4,8 @@
   "quoteCurrency": "SOL",
   "solMode": false,
 
-  "deployAmountSol": 4,
-  "minSolToOpen": 2,
+  "deployAmountSol": 0.5,
+  "minSolToOpen": 0.1,
   "maxDeployAmount": 50,
   "positionSizePct": 0,
   "deployAmountUsdc": 100,
@@ -15,7 +15,7 @@
   "gasReserveUsdc": 0,
   "minUsdcToOpen": 30,
   "rentBufferSol": 0.06,
-  "maxPositions": 3,
+  "maxPositions": 2,
 
   "stopLossPct": -10,
   "emergencyPriceDropPct": -50,
@@ -25,10 +25,10 @@
   "trailingDropPct": 1,
   "pnlSanityMaxDiffPct": 5,
 
-  "autoSweepSolToUsdc": false,
-  "capitalSol": 15,
+  "autoSweepSolToUsdc": true,
+  "capitalSol": 1.4,
 
-  "strategy": "bid_ask",
+  "strategy": "spot",
   "minBinsBelow": 35,
   "maxBinsBelow": 69,
   "defaultBinsBelow": 69,
@@ -93,15 +93,10 @@
   "maxSteps": 20,
 
   "pnlSource": "rpc",
-  "pnlRpcUrl": "",
+  "pnlRpcUrl": "https://pump.helius-rpc.com",
   "pnlPollIntervalSec": 3,
   "pnlDepositCacheTtlSec": 300,
   "gmgnFeeSource": "gmgn",
-
-  "agentId": "",
-  "publicApiKey": "",
-  "agentMeridianApiUrl": "https://api.agentmeridian.xyz/api",
-  "lpAgentRelayEnabled": false,
 
   "chartIndicators": {
     "enabled": false,
@@ -115,8 +110,5 @@
     "requireAllIntervals": false
   },
 
-  "telegramChatId": "",
-  "hiveMindUrl": "",
-  "hiveMindApiKey": "",
-  "hiveMindPullMode": "auto"
+  "telegramChatId": ""
 }
