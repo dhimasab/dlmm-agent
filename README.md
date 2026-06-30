@@ -97,16 +97,13 @@ LOG_LEVEL=info
 ```bash
 ssh ubuntu@YOUR_VPS_IP
 
-# Install Node.js 18+ (if not installed)
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs git
+# Install Node.js 22 using nvm (recommended, avoids apt issues)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+source ~/.bashrc
+nvm install 22
 
 # Verify
-node -v
-# If node not found, create symlink:
-# sudo ln -s /usr/bin/nodejs /usr/local/bin/node
-
-npm -v
+node -v && npm -v
 
 # Clone repo
 git clone https://github.com/dhimasab/dlmm-agent.git
