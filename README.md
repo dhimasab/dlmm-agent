@@ -9,17 +9,18 @@ DLMM Agent runs continuous screening and management cycles, deploying capital in
 ## ⚡ Quick Setup
 
 ```bash
-# Install via npm (recommended)
-npm install -g dlmm-agent
+# Clone repo
+git clone https://github.com/dhimasab/dlmm-agent.git
+cd dlmm-agent
 
-# Or run directly with npx (no install)
-npx dlmm-agent start
+# Install dependencies
+npm install
 
 # Setup .env (see below)
 # Edit user-config.json if needed
 
 # Go live
-dlmm-agent start
+node index.js
 ```
 
 ---
@@ -83,10 +84,12 @@ LOG_LEVEL=info
 
 ## Deploy to VPS
 
-### 1. Install via npm
+### 1. Clone on VPS
 ```bash
 ssh ubuntu@YOUR_VPS_IP
-npm install -g dlmm-agent
+git clone https://github.com/dhimasab/dlmm-agent.git
+cd dlmm-agent
+npm install
 ```
 
 ### 2. Setup & run with pm2
@@ -96,7 +99,7 @@ nano .env
 # (paste your config, Ctrl+X to save)
 
 # Start with pm2
-pm2 start $(which dlmm-agent) --name "dlmm-agent" -- start
+pm2 start node --name "dlmm-agent" -- index.js
 pm2 save
 pm2 startup
 ```
@@ -207,10 +210,10 @@ DLMM Agent now distinguishes between OOR directions with different exit behavior
 
 | Mode | Command | Usage |
 |---|---|---|
-| Dry run | `dlmm-agent start --dry-run` | Test without transactions |
-| Live | `dlmm-agent start` | Autonomous trading |
-| pm2 | `pm2 start dlmm-agent -- start` | Daemon mode |
-| CLI tools | `dlmm-agent <command>` | Direct tool calls |
+| Dry run | `node index.js` | Test without transactions (set `DRY_RUN=true` in .env) |
+| Live | `node index.js` | Autonomous trading |
+| pm2 | `pm2 start node --name "dlmm-agent" -- index.js` | Daemon mode |
+| CLI tools | `node cli.js <command>` | Direct tool calls |
 
 ---
 
