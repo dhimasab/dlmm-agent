@@ -20,10 +20,8 @@ npm install
 cp .env.example .env
 cp user-config.json.example user-config.json
 
-# Edit .env with your API keys
+# Edit configs with your settings
 nano .env
-
-# Edit user-config.json with your preferences
 nano user-config.json
 
 # Go live
@@ -109,8 +107,9 @@ npm install
 cp .env.example .env
 cp user-config.json.example user-config.json
 
-# Edit with your API keys
+# Edit configs with your settings
 nano .env
+nano user-config.json
 
 # Start with pm2
 pm2 start node --name "dlmm-agent" -- index.js
