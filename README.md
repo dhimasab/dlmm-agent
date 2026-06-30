@@ -181,23 +181,28 @@ DLMM Agent runs a **ReAct agent loop** — each cycle the LLM reasons over live 
 
 ## Auto-Sweep SOL → USDC
 
-Fitur untuk otomatis menukar SOL ke USDC ketika tidak ada posisi terbuka, menjaga modal tetap di USDC.
+Automatically converts excess SOL to USDC when no positions are open, keeping idle capital in USDC.
 
-### Cara kerja
-1. Setiap management cycle, cek `autoSweepSolToUsdc` di user-config
-2. Jika true, cek apakah sudah pernah sweep hari ini (state disimpan di `autoSweepSolToUsdc-state.json`)
-3. Jika sudah, skip (hanya sekali per hari WIB)
-4. Jika ada posisi masih terbuka, skip
-5. Jika balance SOL > `capitalSol`, swap kelebihan SOL tersebut ke USDC
-6. Catat tanggal & hasil sweep ke file state
+### How it works
+1. Each management cycle checks `autoSweepSolToUsdc` in user-config
+2. If enabled, checks if already swept today (state stored in `autoSweepSolToUsdc-state.json`)
+3. If already done today, skip (once per day WIB)
+4. If positions are still open, skip
+5. If SOL balance > `capitalSol`, swap the excess SOL to USDC
+6. Log the date & result to state file
 
-### Konfigurasi
+### Configuration
 ```json
 {
   "autoSweepSolToUsdc": true,
   "capitalSol": 1.4
 }
 ```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `autoSweepSolToUsdc` | false | Enable auto-sweep |
+| `capitalSol` | 15 | Amount of SOL to keep in wallet (excess is swapped) |
 
 | Key | Default | Deskripsi |
 |-----|---------|-----------|
