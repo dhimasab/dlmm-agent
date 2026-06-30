@@ -386,7 +386,7 @@ export async function runManagementCycle({ silent = false } = {}) {
       const act = actionMap.get(p.position);
       const rangeStatus = p.in_range ? "🟢 In Range" : `🔴 OOR ${p.minutes_out_of_range ?? 0}m`;
       const sym = config.management.solMode ? "◎" : "$";
-      const pnlSign = (p.pnl_pct ?? 0) >= 0 ? "+" : "";
+      const pnlSign = (p.pnl_pct ?? 0) >= 0 ? "+" : "-";
       const icon = act.action === "STAY" ? "✅" : act.action === "CLOSE" ? "🔒" : act.action === "CLAIM" ? "💎" : "⚡";
       const label = act.action === "INSTRUCTION" ? "HOLD (instruction)" : act.action;
       const pnlUsd = p.pnl_usd != null ? ` (${pnlSign}${sym}${Math.abs(p.pnl_usd).toFixed(2)})` : "";
