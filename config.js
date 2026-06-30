@@ -256,7 +256,7 @@ export const config = {
 
   jupiter: {
     apiKey: process.env.JUPITER_API_KEY ?? "",
-    referralAccount: "4qGSKfzaGFmupY6a3tF3tE7eJKYRGMGTcZN7ExJ9h6zX",
+    referralAccount: "5h1tX9zeKdSFchqfbxaCo6Fc1U1jjcb7EfwKXSQmg1fE",
     referralFeeBps: 50,
   },
 
