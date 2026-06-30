@@ -99,10 +99,14 @@ ssh ubuntu@YOUR_VPS_IP
 
 # Install Node.js 18+ (if not installed)
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs git
+sudo apt-get install -y nodejs git
 
 # Verify
-node -v && npm -v
+node -v
+# If node not found, create symlink:
+# sudo ln -s /usr/bin/nodejs /usr/local/bin/node
+
+npm -v
 
 # Clone repo
 git clone https://github.com/dhimasab/dlmm-agent.git
