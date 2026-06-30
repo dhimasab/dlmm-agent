@@ -783,36 +783,28 @@ STEPS:
    pass deploy_position.volatility = the candidate volatility value.
    bins_above = 0. Single-side SOL only: set amount_y, keep amount_x = 0.
    ${isUsdcMode ? `amount_y: use ~${deployAmount.toFixed(3)} SOL as a rough estimate (the system will swap the full USDC budget and override the actual amount at execution).` : ""}
-4. Report in this format (no tables):
-   🚀 Deployed: <pool name>
+4. Report in plain text (no markdown, no bold):
+   Deployed: <pool name>
    <pool address>
 
-   ◎ <amount> SOL  |  <strategy>  |  bin <active_bin>
-   📐 Range: <min> → <max>
-   📊 Cover: <down>% down  |  <up>% up  |  <total>% width
+   ◎ <amount> SOL | <strategy> | bin <active_bin>
+   Range: <min> → <max>
+   Cover: <down>% down | <up>% up | <total>% width
 
-   Market
-   💰 Fee/TVL: <x>%  |  📈 Vol: $<x>  |  📦 TVL: $<x>
-   🌊 Volatility: <x>  |  👥 Organic: <x>%  |  🎂 Age: <x>h  |  💵 Mcap: $<x>
+   Market: Fee/TVL <x>% | Vol $<x> | TVL $<x> | Volatility <x> | Organic <x>% | Age <x>h | Mcap $<x>
+   Audit: Top10 <x>% | Bots <x>% | Fees <x> SOL | Smart <names>
 
-   Audit
-   🏆 Top10: <x>%  |  🤖 Bots: <x>%  |  💸 Fees: <x> SOL
-   👛 Smart: <names or none>
-
-   Why
-   <2-4 concise sentences>
+   Why: <2-4 concise sentences>
 
 5. If nothing qualifies:
-   ⛔ No Deploy: <pool name>
-   <pool address>
+   No Deploy: <pool name>
 
-   Why skipped:
-   <2-4 concise sentences>
+   Why: <2-4 concise sentences>
 
-   Rejected:
-   • <name> — <reason>
+   Rejected: <name> — <reason>
 IMPORTANT:
-- Keep the whole report compact and highly scannable for Telegram.
+- No markdown formatting (no ** or *).
+- Keep it compact and clean for Telegram.
       `, config.llm.maxSteps, [], "SCREENER", config.llm.screeningModel, config.llm.maxTokens, {
         onToolStart: async ({ name }) => {
           if (name === "deploy_position") deployAttempted = true;
