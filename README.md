@@ -16,8 +16,15 @@ cd dlmm-agent
 # Install dependencies
 npm install
 
-# Setup .env (see below)
-# Edit user-config.json if needed
+# Copy example configs (edit after copying)
+cp .env.example .env
+cp user-config.json.example user-config.json
+
+# Edit .env with your API keys
+nano .env
+
+# Edit user-config.json with your preferences
+nano user-config.json
 
 # Go live
 node index.js
@@ -98,9 +105,12 @@ npm install
 
 ### 2. Setup & run with pm2
 ```bash
-# Copy .env
+# Copy example configs
+cp .env.example .env
+cp user-config.json.example user-config.json
+
+# Edit with your API keys
 nano .env
-# (paste your config, Ctrl+X to save)
 
 # Start with pm2
 pm2 start node --name "dlmm-agent" -- index.js
