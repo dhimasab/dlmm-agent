@@ -1,14 +1,12 @@
 # DLMM Agent
 
-**Autonomous Meteora DLMM liquidity management agent for Solana, powered by LLMs.****Autonomous Meteora DLMM liquidity management agent for Solana, powered by LLMs.**
+**Autonomous Meteora DLMM liquidity management agent for Solana, powered by LLMs.**
 
 DLMM Agent runs continuous screening and management cycles, deploying capital into high-quality Meteora DLMM pools and closing positions based on live PnL, yield, and range data. It learns from every position it closes.
 
 ---
 
-## ⚡ Quick Setup (OpenCode + DeepSeek)
-
-This configuration uses **OpenCode API** with **DeepSeek-v4-Flash** model for cost-effective autonomous trading.
+## ⚡ Quick Setup
 
 ```bash
 # Install via npm (recommended)
@@ -19,9 +17,6 @@ npx dlmm-agent start
 
 # Setup .env (see below)
 # Edit user-config.json if needed
-
-# Test (dry run)
-dlmm-agent start
 
 # Go live
 dlmm-agent start
@@ -35,10 +30,10 @@ dlmm-agent start
 
 ### `.env`
 ```env
-# ── LLM Provider (OpenCode + DeepSeek) ────────────────────
-LLM_BASE_URL=https://opencode.ai/zen/go/v1
-LLM_API_KEY=sk-your-opencode-api-key
-LLM_MODEL=deepseek-v4-flash
+# ── LLM Provider ──────────────────────────────────────────
+LLM_BASE_URL=<your-llm-base-url>
+LLM_API_KEY=<your-llm-api-key>
+LLM_MODEL=<your-model>
 
 # ── Wallet ────────────────────────────────────────────────
 WALLET_PRIVATE_KEY=your_base58_private_key
@@ -92,25 +87,39 @@ LOG_LEVEL=info
 ```bash
 ssh ubuntu@YOUR_VPS_IP
 npm install -g dlmm-agent
-dlmm-agent
 ```
 
-### 2. Setup & run
+### 2. Setup & run with pm2
 ```bash
-# Copy .env (secure method recommended)
-# nano .env
+# Copy .env
+nano .env
 # (paste your config, Ctrl+X to save)
 
-dlmm-agent start
+# Start with pm2
+pm2 start $(which dlmm-agent) --name "dlmm-agent" -- start
+pm2 save
+pm2 startup
 ```
 
-### 3. Monitor from anywhere
+### 3. pm2 commands
 ```bash
-# REPL commands while running:
-> /status           # Wallet + positions
-> /candidates       # Screen pools
-> /learn            # Study top LPers
-> /thresholds       # Settings + stats
+pm2 status                    # Check if running
+pm2 logs dlmm-agent           # View logs
+pm2 logs dlmm-agent --lines 50 --nostream  # Recent logs
+pm2 restart dlmm-agent        # Restart
+pm2 stop dlmm-agent           # Stop
+pm2 delete dlmm-agent         # Remove from pm2
+```
+
+### 4. Monitor from anywhere
+```bash
+# Telegram commands (while running):
+/positions       # List open positions
+/close <n>       # Close position by index
+/set <n> <note>  # Set note on position
+/briefing        # Morning briefing
+/status          # Wallet + positions
+/thresholds      # Settings
 ```
 
 ---
@@ -177,9 +186,9 @@ DLMM Agent now distinguishes between OOR directions with different exit behavior
 ## Requirements
 
 - Node.js 18+
-- OpenCode API key (https://opencode.ai)
+- LLM API key (OpenAI-compatible endpoint, e.g. OpenRouter)
 - Solana wallet (base58 private key)
-- Helius RPC endpoint (https://helius.xyz)
+- Solana RPC endpoint
 - Telegram bot token (optional)
 
 ---
@@ -198,17 +207,18 @@ DLMM Agent now distinguishes between OOR directions with different exit behavior
 
 | Mode | Command | Usage |
 |---|---|---|
-| Dry run | `npm run dev` | Test without transactions |
-| Live | `npm start` | Autonomous trading |
+| Dry run | `dlmm-agent start --dry-run` | Test without transactions |
+| Live | `dlmm-agent start` | Autonomous trading |
+| pm2 | `pm2 start dlmm-agent -- start` | Daemon mode |
 | CLI tools | `dlmm-agent <command>` | Direct tool calls |
 
 ---
 
 ## Troubleshooting
 
-**Model errors:** If using OpenCode, ensure `tool_choice=auto` (not `required`) — some models don't support it with thinking enabled.
+**Model errors:** If using a thinking/reasoning model, ensure `tool_choice=auto` or omit it — some models don't support `tool_choice=required` with thinking enabled.
 
-**Connection issues:** Use VPS for 24/7 uptime. Recommended: DigitalOcean, Linode ($5-10/mo).
+**Connection issues:** Use VPS for 24/7 uptime with pm2 for auto-restart. Recommended: DigitalOcean, Linode ($5-10/mo).
 
 **Low balance:** Minimum 0.5 SOL recommended for 1-position safety. 5+ SOL for comfortable operation.
 
