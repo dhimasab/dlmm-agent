@@ -392,7 +392,7 @@ export async function runManagementCycle({ silent = false } = {}) {
       const pnlUsd = p.pnl_usd != null ? ` (${pnlSign}${sym}${Math.abs(p.pnl_usd).toFixed(2)})` : "";
       const lines = [
         `${icon} #${i + 1} ${p.pair}  →  ${label}`,
-        `   Val: ${sym}${p.total_value_usd ?? "?"}  |  PnL: ${pnlSign}${p.pnl_pct ?? "?"}%${pnlUsd}  |  Yield: ${p.fee_per_tvl_24h ?? "?"}%`,
+        `   Val: ${sym}${p.total_value_usd ?? "?"}  |  PnL: ${pnlSign}${p.pnl_pct != null ? Math.abs(p.pnl_pct).toFixed(2) : "?"}%${pnlUsd}  |  Yield: ${p.fee_per_tvl_24h ?? "?"}%`,
         `   Age: ${p.age_minutes ?? "?"}m  |  ${rangeStatus}`,
       ];
       if (p.instruction) lines.push(`   📝 "${p.instruction}"`);
