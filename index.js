@@ -254,7 +254,7 @@ async function runAutoSweepSolToUsdc(walletSol, livePositions) {
 
   // Telegram notification
   try {
-    const msg = `💰 Auto-Sweep\n${"─".repeat(24)}\n${excessSol} SOL → ${result.amount_out ?? "?"} USDC\nTx: \`${result.tx}\``;
+    const msg = `💰 **Auto-Sweep**\n${"─".repeat(24)}\n${excessSol} **SOL** → ${result.amount_out ?? "?"} **USDC**\nTx: <code>${result.tx}</code>`;
     sendMessage(msg).catch(() => {});
   } catch { /* best effort */ }
 }
@@ -387,16 +387,16 @@ export async function runManagementCycle({ silent = false } = {}) {
 
     const reportLines = positionData.map((p, i) => {
       const act = actionMap.get(p.position);
-      const rangeStatus = p.in_range ? "🟢 In Range" : `🔴 OOR ${p.minutes_out_of_range ?? 0}m`;
+      const rangeStatus = p.in_range ? "🟢 **In Range**" : `🔴 **OOR** ${p.minutes_out_of_range ?? 0}m`;
       const sym = config.management.solMode ? "◎" : "$";
       const pnlSign = (p.pnl_pct ?? 0) >= 0 ? "+" : "-";
       const icon = act.action === "STAY" ? "✅" : act.action === "CLOSE" ? "🔒" : act.action === "CLAIM" ? "💎" : "⚡";
       const label = act.action === "INSTRUCTION" ? "HOLD (instruction)" : act.action;
       const pnlUsd = p.pnl_usd != null ? ` (${pnlSign}${sym}${Math.abs(p.pnl_usd).toFixed(2)})` : "";
       const lines = [
-        `${icon} #${i + 1} ${p.pair}  →  ${label}`,
-        `   Val: ${sym}${p.total_value_usd ?? "?"}  |  PnL: ${pnlSign}${p.pnl_pct != null ? Math.abs(p.pnl_pct).toFixed(2) : "?"}%${pnlUsd}  |  Yield: ${p.fee_per_tvl_24h ?? "?"}%`,
-        `   Age: ${p.age_minutes ?? "?"}m  |  ${rangeStatus}`,
+        `${icon} **#${i + 1} ${p.pair}** → ${label}`,
+        `   Val: ${sym}${p.total_value_usd ?? "?"} | PnL: **${pnlSign}${p.pnl_pct != null ? Math.abs(p.pnl_pct).toFixed(2) : "?"}%**${pnlUsd} | Yield: ${p.fee_per_tvl_24h ?? "?"}%`,
+        `   Age: ${p.age_minutes ?? "?"}m | ${rangeStatus}`,
       ];
       if (p.instruction) lines.push(`   📝 "${p.instruction}"`);
       if (act.action === "CLOSE" && act.rule === "exit") lines.push(`   ⚡ Trailing TP: ${act.reason}`);
@@ -411,7 +411,7 @@ export async function runManagementCycle({ silent = false } = {}) {
       : "no action";
 
     const cur = config.management.solMode ? "◎" : "$";
-    mgmtReport = `${"—".repeat(20)}\n${reportLines.join("\n\n")}\n${"—".repeat(20)}\n\n💼 ${positions.length} position(s)  |  ${cur}${totalValue.toFixed(2)}  |  fees: ${cur}${totalUnclaimed.toFixed(2)}  |  ${actionSummary}`;
+    mgmtReport = `${"—".repeat(20)}\n${reportLines.join("\n\n")}\n${"—".repeat(20)}\n\n**💼 ${positions.length} position(s)** | ${cur}${totalValue.toFixed(2)} | fees: ${cur}${totalUnclaimed.toFixed(2)} | ${actionSummary}`;
 
     // ── Call LLM only if action needed ──────────────────────────────
     const actionPositions = positionData.filter(p => {
@@ -1788,7 +1788,7 @@ async function telegramHandler(msg) {
         const oor = !p.in_range ? " ⚠️OOR" : "";
         return `${i + 1}. ${p.pair} | ${cur}${p.total_value_usd} | PnL: ${pnl} | fees: ${cur}${p.unclaimed_fees_usd} | ${age}${oor}`;
       });
-      await sendMessage(`📊 Open Positions (${total_positions}):\n\n${lines.join("\n")}\n\n/close <n> to close | /set <n> <note> to set instruction`);
+      await sendMessage(`📊 **Open Positions** (${total_positions}):\n\n${lines.join("\n")}\n\n/close &lt;n&gt; to close | /set &lt;n&gt; &lt;note&gt; to set instruction`);
     } catch (e) { await sendMessage(`Error: ${e.message}`).catch(() => {}); }
     return;
   }
@@ -1823,12 +1823,12 @@ async function telegramHandler(msg) {
       const { positions } = await getMyPositions({ force: true });
       if (idx < 0 || idx >= positions.length) { await sendMessage("Invalid number. Use /positions first."); return; }
       const pos = positions[idx];
-      await sendMessage(`Closing ${pos.pair}...`);
+      await sendMessage(`🔒 Closing <b>${pos.pair}</b>...`);
       const result = await closePosition({ position_address: pos.position });
       if (result.success) {
         const closeTxs = result.close_txs?.length ? result.close_txs : result.txs;
         const claimNote = result.claim_txs?.length ? `\nClaim txs: ${result.claim_txs.join(", ")}` : "";
-        await sendMessage(`✅ Closed ${pos.pair}\nPnL: ${config.management.solMode ? "◎" : "$"}${result.pnl_usd ?? "?"} | close txs: ${closeTxs?.join(", ") || "n/a"}${claimNote}`);
+        await sendMessage(`✅ **Closed** ${pos.pair}\nPnL: **${config.management.solMode ? "◎" : "$"}${result.pnl_usd ?? "?"}** | txs: ${closeTxs?.join(", ") || "n/a"}${claimNote}`);
       } else {
         await sendMessage(`❌ Close failed: ${JSON.stringify(result)}`);
       }
@@ -1866,7 +1866,7 @@ async function telegramHandler(msg) {
       if (idx < 0 || idx >= positions.length) { await sendMessage("Invalid number. Use /positions first."); return; }
       const pos = positions[idx];
       setPositionInstruction(pos.position, note);
-      await sendMessage(`✅ Note set for ${pos.pair}:\n"${note}"`);
+      await sendMessage(`✅ **Note set** for ${pos.pair}:\n<i>${note}</i>`);
     } catch (e) { await sendMessage(`Error: ${e.message}`).catch(() => {}); }
     return;
   }
