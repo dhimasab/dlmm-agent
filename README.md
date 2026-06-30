@@ -6,33 +6,22 @@ DLMM Agent runs continuous screening and management cycles, deploying capital in
 
 ---
 
-## ⚡ Quick Setup
+## Install
 
+### Locally
 ```bash
-# Clone repo
 git clone https://github.com/dhimasab/dlmm-agent.git
 cd dlmm-agent
-
-# Install dependencies
 npm install
-
-# Copy example configs (edit after copying)
 cp .env.example .env
 cp user-config.json.example user-config.json
-
-# Edit configs with your settings
 nano .env
 nano user-config.json
-
-# Go live
 node index.js
 ```
 
----
+### On VPS (with pm2)
 
-## Deploy to VPS
-
-### 1. Install Node.js & clone
 ```bash
 ssh ubuntu@YOUR_VPS_IP
 
@@ -41,19 +30,10 @@ curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
 source ~/.bashrc
 nvm install 22
 
-# Verify
-node -v && npm -v
-
 # Clone repo
 git clone https://github.com/dhimasab/dlmm-agent.git
 cd dlmm-agent
 npm install
-```
-
-### 2. Setup & run with pm2
-```bash
-# Install pm2 globally
-npm install -g pm2
 
 # Copy example configs
 cp .env.example .env
@@ -63,23 +43,22 @@ cp user-config.json.example user-config.json
 nano .env
 nano user-config.json
 
-# Start with pm2
+# Install pm2 & start
+npm install -g pm2
 pm2 start node --name "dlmm-agent" -- index.js
 pm2 save
 pm2 startup
 ```
 
-### 3. pm2 commands
+### pm2 commands
 ```bash
 pm2 status                    # Check if running
 pm2 logs dlmm-agent           # View logs
-pm2 logs dlmm-agent --lines 50 --nostream  # Recent logs
 pm2 restart dlmm-agent        # Restart
 pm2 stop dlmm-agent           # Stop
-pm2 delete dlmm-agent         # Remove from pm2
 ```
 
-### 4. Monitor from anywhere
+### Monitor from anywhere
 ```bash
 # Telegram commands (while running):
 /positions       # List open positions
@@ -87,7 +66,6 @@ pm2 delete dlmm-agent         # Remove from pm2
 /set <n> <note>  # Set note on position
 /briefing        # Morning briefing
 /status          # Wallet + positions
-/thresholds      # Settings
 ```
 
 ---
