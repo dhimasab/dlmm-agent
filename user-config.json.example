@@ -74,5 +74,7 @@
   "healthCheckIntervalMin": 60,
 
   "minClaimAmount": 10,
-  "autoSwapAfterClaim": true
+  "autoSwapAfterClaim": true,
+
+  "referralEnabled": true
 }
