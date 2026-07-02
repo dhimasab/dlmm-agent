@@ -139,7 +139,9 @@ function isSystemRoleError(error) {
 
 function isToolChoiceRequiredError(error) {
   const message = String(error?.message || error?.error?.message || error || "");
-  return /tool_choice/i.test(message) && /required/i.test(message);
+  if (/tool_choice/i.test(message) && /required/i.test(message)) return true;
+  if (error?.status === 400 && /Error from provider/i.test(message)) return true;
+  return false;
 }
 
 function isThinkingModeToolChoiceError(error) {
@@ -203,9 +205,7 @@ export async function agentLoop(goal, maxSteps = config.llm.maxSteps, sessionHis
       const FALLBACK_MODEL = "stepfun/step-3.5-flash:free";
       let response;
       let usedModel = activeModel;
-      // Force a tool call on step 0 for action intents — prevents the model from inventing deploy/close outcomes
-      const ACTION_INTENTS = /\b(deploy|open|add liquidity|close|exit|withdraw|claim|swap|block|unblock)\b/i;
-      let toolChoice = (step === 0 && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
+      let toolChoice = "auto";
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
